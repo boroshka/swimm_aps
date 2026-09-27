@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пул задач — тренировки пловца</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0E2A3D;
+    --ink-soft: #4A6376;
+    --pool: #1C7C9C;
+    --pool-deep: #0F5A73;
+    --amber: #D98B2A;
+    --success: #3E8E5A;
+    --bg: #F6FAFB;
+    --card: #FFFFFF;
+    --line: #DCE7EC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink: #EAF3F7;
+      --ink-soft: #9FB6C2;
+      --pool: #4FB4D4;
+      --pool-deep: #6FCBE6;
+      --amber: #E8A94A;
+      --success: #5CB983;
+      --bg: #0B1E28;
+      --card: #102935;
+      --line: #1D3B49;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink: #EAF3F7;
+    --ink-soft: #9FB6C2;
+    --pool: #4FB4D4;
+    --pool-deep: #6FCBE6;
+    --amber: #E8A94A;
+    --success: #5CB983;
+    --bg: #0B1E28;
+    --card: #102935;
+    --line: #1D3B49;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Sans', sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+  h1 {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .sub {
+    color: var(--ink-soft);
+    font-size: 14px;
+    margin: 0 0 22px;
+  }
+  .lanes {
+    height: 6px;
+    background: repeating-linear-gradient(90deg, var(--pool) 0 18px, transparent 18px 26px);
+    border-radius: 3px;
+    margin-bottom: 24px;
+    opacity: 0.55;
+  }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 8px;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--ink-soft);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+    transition: color 0.15s;
+  }
+  .tab.active {
+    color: var(--pool-deep);
+    border-bottom-color: var(--pool);
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  label {
+    display: block;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin-bottom: 6px;
+    font-weight: 500;
+  }
+  select, input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 14px;
+    margin-bottom: 14px;
+  }
+  select:focus, input:focus, button:focus-visible {
+    outline: 2px solid var(--pool);
+    outline-offset: 1px;
+  }
+  button {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    padding: 11px 18px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--pool-deep);
+    color: white;
+    width: 100%;
+  }
+  .btn-primary:hover { background: var(--pool); }
+
+  .task {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 13px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .task:last-child { border-bottom: none; }
+  .task-idx {
+    font-family: 'Space Grotesk', sans-serif;
+    color: var(--pool);
+    font-weight: 600;
+    font-size: 13px;
+    min-width: 20px;
+  }
+  .task-body { flex: 1; }
+  .task-text { font-size: 14.5px; }
+  .swap-btn {
+    background: transparent;
+    color: var(--ink-soft);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    padding: 6px 10px;
+    white-space: nowrap;
+  }
+  .swap-btn:hover { color: var(--pool-deep); border-color: var(--pool); }
+
+  .empty {
+    color: var(--ink-soft);
+    font-size: 14px;
+    text-align: center;
+    padding: 30px 10px;
+  }
+
+  .result-item {
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-top {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 14.5px;
+  }
+  .result-date { color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
+  .result-note { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
+  .del { color: var(--ink-soft); background: none; border: none; font-size: 12px; cursor: pointer; padding: 2px 4px; }
+  .del:hover { color: #C0392B; }
+
+  .stat-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .stat {
+    flex: 1;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+  }
+  .stat-num {
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--pool-deep);
+  }
+  .stat-label { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
+
+  .profile-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    color: var(--ink-soft);
+    margin: -8px 0 20px;
+  }
+  .edit-link {
+    background: none;
+    border: none;
+    color: var(--pool-deep);
+    font-size: 13px;
+    font-weight: 600;
+    padding: 0;
+    text-decoration: underline;
+    cursor: pointer;
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Пул задач</h1>
+  <p class="sub" id="subGreeting">Демо-прототип: генератор тренировок и лог результатов</p>
+  <div class="lanes"></div>
+
+  <div id="regScreen" class="card hidden">
+    <label for="regFirst">Имя</label>
+    <input type="text" id="regFirst" placeholder="Имя">
+    <label for="regLast">Фамилия</label>
+    <input type="text" id="regLast" placeholder="Фамилия">
+    <label for="regYear">Год рождения</label>
+    <input type="number" id="regYear" placeholder="Например: 1995" min="1930" max="2020">
+    <label for="regLevel">Уровень плавания</label>
+    <select id="regLevel">
+      <option value="beginner">Новичок</option>
+      <option value="intermediate">Любитель</option>
+      <option value="advanced">Продвинутый</option>
+    </select>
+    <label for="regStroke">Каким стилем хочешь плавать больше всего</label>
+    <select id="regStroke">
+      <option value="freestyle">Вольный стиль</option>
+      <option value="backstroke">На спине</option>
+      <option value="breaststroke">Брасс</option>
+      <option value="butterfly">Баттерфляй</option>
+      <option value="medley">Комплексное плавание</option>
+    </select>
+    <button class="btn-primary" onclick="saveProfile()">Сохранить и начать</button>
+  </div>
+
+  <div id="mainScreen" class="hidden">
+  <div class="profile-line">
+    <span id="profileSummary"></span>
+    <button class="edit-link" onclick="showRegistration(true)">изменить</button>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="gen">Тренировка</button>
+    <button class="tab" data-tab="log">Результаты</button>
+  </div>
+
+  <div id="gen" class="panel active">
+    <div class="card">
+      <label for="type">Тип нагрузки</label>
+      <select id="type">
+        <option value="aerobic">Аэробная</option>
+        <option value="anaerobic">Анаэробная</option>
+        <option value="sprint">Спринтерская (триатлон)</option>
+        <option value="distance">Стайерская</option>
+      </select>
+      <button class="btn-primary" onclick="generate()">Сгенерировать тренировку</button>
+    </div>
+    <div id="workoutCard" class="card" style="display:none;">
+      <div id="taskList"></div>
+    </div>
+    <div id="genEmpty" class="empty">Выберите тип нагрузки, затем нажмите «Сгенерировать»</div>
+  </div>
+
+  <div id="log" class="panel">
+    <div class="stat-row">
+      <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-label">всего результатов</div></div>
+      <div class="stat"><div class="stat-num" id="statMonth">0</div><div class="stat-label">за этот месяц</div></div>
+    </div>
+    <div class="card">
+      <label for="rDate">Дата</label>
+      <input type="date" id="rDate">
+      <label for="rEvent">Дистанция / стиль</label>
+      <input type="text" id="rEvent" placeholder="Например: 100м вольный стиль">
+      <label for="rResult">Результат</label>
+      <input type="text" id="rResult" placeholder="Время или место, например 1:02.4 или 3 место">
+      <label for="rNote">Заметка (необязательно)</label>
+      <input type="text" id="rNote" placeholder="Соревнования, ощущения и т.д.">
+      <button class="btn-primary" onclick="addResult()">Сохранить результат</button>
+    </div>
+    <div id="resultsCard" class="card" style="display:none;">
+      <div id="resultsList"></div>
+    </div>
+    <div id="logEmpty" class="empty">Пока нет сохранённых результатов</div>
+  </div>
+  </div>
+</div>
+
+<script>
+const POOL = {
+  aerobic: {
+    beginner: [
+      "400м вольный стиль в спокойном темпе",
+      "8×50м вольный стиль, отдых 20 сек",
+      "300м комплексное плавание (техника)",
+      "6×50м на технику дыхания"
+    ],
+    intermediate: [
+      "800м вольный стиль равномерно",
+      "10×100м вольный стиль, отдых 15 сек",
+      "6×200м комплекс, умеренный темп",
+      "16×50м с работой ног"
+    ],
+    advanced: [
+      "1500м вольный стиль равномерно",
+      "12×100м вольный стиль, отдых 10 сек",
+      "8×200м комплекс, темп ниже соревновательного",
+      "20×50м с акцентом на технику гребка"
+    ]
+  },
+  anaerobic: {
+    beginner: [
+      "6×25м с максимальным усилием, отдых 40 сек",
+      "4×50м на скорость, отдых 60 сек",
+      "8×15м стартовые ускорения"
+    ],
+    intermediate: [
+      "10×50м на скорость, отдых 45 сек",
+      "6×100м с нарастанием темпа",
+      "8×25м максимум, короткий отдых 20 сек"
+    ],
+    advanced: [
+      "12×50м на максимальной скорости, отдых 30 сек",
+      "8×100м близко к соревновательному темпу",
+      "6×25м на максимум с минимальным отдыхом"
+    ]
+  },
+  sprint: {
+    beginner: [
+      "4×25м спринт из воды, отдых 45 сек",
+      "6×50м прогрессия темпа по 12.5м",
+      "Отработка старта — 6 стартовых прыжков"
+    ],
+    intermediate: [
+      "8×25м спринт, отдых 40 сек",
+      "6×50м на максимальной скорости",
+      "4×100м спринт вторая половина дистанции"
+    ],
+    advanced: [
+      "10×25м максимальный спринт, отдых 30 сек",
+      "8×50м соревновательный темп",
+      "Серия стартов и поворотов на скорость"
+    ]
+  },
+  distance: {
+    beginner: [
+      "600м равномерно, фокус на дыхание",
+      "4×150м вольный стиль, ровный темп",
+      "10×50м с удлинённым гребком"
+    ],
+    intermediate: [
+      "1200м равномерно",
+      "6×200м вольный стиль, стабильный темп",
+      "8×100м на выносливость"
+    ],
+    advanced: [
+      "2000м равномерно без остановок",
+      "8×250м вольный стиль, стабильный темп",
+      "10×150м на выносливость с контролем темпа"
+    ]
+  }
+};
+
+let currentWorkout = [];
+let profile = null;
+
+const LEVEL_LABEL = { beginner: 'Новичок', intermediate: 'Любитель', advanced: 'Продвинутый' };
+const STROKE_LABEL = { freestyle: 'вольный стиль', backstroke: 'на спине', breaststroke: 'брасс', butterfly: 'баттерфляй', medley: 'комплексное плавание' };
+
+const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+const cloud = (tg && tg.CloudStorage) ? tg.CloudStorage : null;
+
+function csGet(key) {
+  return new Promise((resolve) => {
+    cloud.getItem(key, (err, value) => resolve(err ? null : value));
+  });
+}
+function csSet(key, value) {
+  return new Promise((resolve) => {
+    cloud.setItem(key, value, () => resolve());
+  });
+}
+
+// Загружает значение: из Telegram CloudStorage, если открыто внутри Telegram,
+// иначе из localStorage браузера (для тестирования вне Telegram).
+async function loadState(key, fallback) {
+  try {
+    if (cloud) {
+      const raw = await csGet(key);
+      return raw ? JSON.parse(raw) : fallback;
+    }
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch (e) { return fallback; }
+}
+async function saveState(key, value) {
+  try {
+    const raw = JSON.stringify(value);
+    if (cloud) { await csSet(key, raw); return; }
+    localStorage.setItem(key, raw);
+  } catch (e) {}
+}
+
+document.querySelectorAll('.tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+function pickTasks(type, level, count) {
+  const source = POOL[type][level];
+  const shuffled = [...source].sort(() => Math.random() - 0.5);
+  const picked = [];
+  for (let i = 0; i < count; i++) {
+    picked.push(shuffled[i % shuffled.length]);
+  }
+  return picked;
+}
+
+// Подставляет предпочитаемый стиль пловца вместо дефолтного "вольный стиль" в тексте задания
+function personalizeText(text) {
+  if (!profile || profile.stroke === 'freestyle') return text;
+  const replacement = STROKE_LABEL[profile.stroke];
+  return text.replace(/вольный стиль/gi, replacement);
+}
+
+function updateProfileSummary() {
+  if (!profile) return;
+  const el = document.getElementById('profileSummary');
+  if (el) {
+    el.textContent = `${profile.firstName} · ${LEVEL_LABEL[profile.level]} · ${STROKE_LABEL[profile.stroke]}`;
+  }
+}
+
+function showRegistration(prefill) {
+  document.getElementById('mainScreen').classList.add('hidden');
+  document.getElementById('regScreen').classList.remove('hidden');
+  if (prefill && profile) {
+    document.getElementById('regFirst').value = profile.firstName || '';
+    document.getElementById('regLast').value = profile.lastName || '';
+    document.getElementById('regYear').value = profile.birthYear || '';
+    document.getElementById('regLevel').value = profile.level || 'beginner';
+    document.getElementById('regStroke').value = profile.stroke || 'freestyle';
+  }
+}
+
+function showMain() {
+  document.getElementById('regScreen').classList.add('hidden');
+  document.getElementById('mainScreen').classList.remove('hidden');
+  updateProfileSummary();
+}
+
+async function saveProfile() {
+  const firstName = document.getElementById('regFirst').value.trim();
+  const lastName = document.getElementById('regLast').value.trim();
+  const birthYear = document.getElementById('regYear').value.trim();
+  const level = document.getElementById('regLevel').value;
+  const stroke = document.getElementById('regStroke').value;
+  if (!firstName || !birthYear) return;
+  profile = { firstName, lastName, birthYear, level, stroke };
+  await saveState('swimdemo_profile', profile);
+  showMain();
+  renderWorkout();
+}
+
+async function generate() {
+  const type = document.getElementById('type').value;
+  const level = profile.level;
+  const countByLevel = { beginner: 3, intermediate: 4, advanced: 5 };
+  currentWorkout = pickTasks(type, level, countByLevel[level]).map(text => ({ text: personalizeText(text), type, level }));
+  renderWorkout();
+  await saveState('swimdemo_workout', currentWorkout);
+}
+
+async function swapTask(idx) {
+  const w = currentWorkout[idx];
+  const alternatives = POOL[w.type][w.level].filter(t => personalizeText(t) !== w.text);
+  if (alternatives.length === 0) return;
+  const next = alternatives[Math.floor(Math.random() * alternatives.length)];
+  currentWorkout[idx] = { text: personalizeText(next), type: w.type, level: w.level };
+  renderWorkout();
+  await saveState('swimdemo_workout', currentWorkout);
+}
+
+function renderWorkout() {
+  const card = document.getElementById('workoutCard');
+  const empty = document.getElementById('genEmpty');
+  const list = document.getElementById('taskList');
+  if (!currentWorkout.length) {
+    card.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  card.style.display = 'block';
+  empty.style.display = 'none';
+  list.innerHTML = currentWorkout.map((t, i) => `
+    <div class="task">
+      <div class="task-idx">${i + 1}</div>
+      <div class="task-body"><div class="task-text">${t.text}</div></div>
+      <button class="swap-btn" onclick="swapTask(${i})">Заменить</button>
+    </div>
+  `).join('');
+}
+
+async function addResult() {
+  const date = document.getElementById('rDate').value;
+  const event = document.getElementById('rEvent').value.trim();
+  const result = document.getElementById('rResult').value.trim();
+  const note = document.getElementById('rNote').value.trim();
+  if (!event || !result) return;
+  const results = await loadState('swimdemo_results', []);
+  results.unshift({ id: Date.now(), date, event, result, note });
+  await saveState('swimdemo_results', results);
+  document.getElementById('rEvent').value = '';
+  document.getElementById('rResult').value = '';
+  document.getElementById('rNote').value = '';
+  renderResults();
+}
+
+async function deleteResult(id) {
+  let results = await loadState('swimdemo_results', []);
+  results = results.filter(r => r.id !== id);
+  await saveState('swimdemo_results', results);
+  renderResults();
+}
+
+async function renderResults() {
+  const results = await loadState('swimdemo_results', []);
+  const card = document.getElementById('resultsCard');
+  const empty = document.getElementById('logEmpty');
+  const list = document.getElementById('resultsList');
+
+  document.getElementById('statTotal').textContent = results.length;
+  const now = new Date();
+  const thisMonth = results.filter(r => {
+    if (!r.date) return false;
+    const d = new Date(r.date);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }).length;
+  document.getElementById('statMonth').textContent = thisMonth;
+
+  if (!results.length) {
+    card.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  card.style.display = 'block';
+  empty.style.display = 'none';
+  list.innerHTML = results.map(r => `
+    <div class="result-item">
+      <div class="result-top">
+        <span>${r.event}</span>
+        <span>${r.result}</span>
+      </div>
+      <div class="result-date">${r.date || 'без даты'} <button class="del" onclick="deleteResult(${r.id})">удалить</button></div>
+      ${r.note ? `<div class="result-note">${r.note}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+(async function init() {
+  if (tg) {
+    tg.ready();
+    tg.expand();
+    const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
+    if (user && user.first_name) {
+      document.getElementById('subGreeting').textContent = `Привет, ${user.first_name}!`;
+    }
+  }
+  profile = await loadState('swimdemo_profile', null);
+  if (!profile) {
+    showRegistration(false);
+  } else {
+    showMain();
+  }
+  currentWorkout = await loadState('swimdemo_workout', []);
+  renderWorkout();
+  await renderResults();
+})();
+</script>
+</body>
+</html>
