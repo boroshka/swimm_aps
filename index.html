@@ -207,6 +207,50 @@
   .profile-row:last-of-type { border-bottom: none; }
   .profile-label { color: var(--ink-soft); }
   .profile-value { font-weight: 600; }
+
+  .hero-card {
+    position: relative;
+    background: linear-gradient(160deg, var(--card), var(--bg));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 22px 20px 18px;
+    margin-bottom: 14px;
+  }
+  .hero-name {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 700;
+    font-size: 23px;
+    letter-spacing: -0.01em;
+    padding-right: 40px;
+  }
+  .hero-rows { margin-top: 14px; }
+  .hero-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 7px 0;
+    font-size: 13.5px;
+    border-bottom: 1px solid var(--line);
+  }
+  .hero-row:last-child { border-bottom: none; }
+  .hero-row span:first-child { color: var(--ink-soft); }
+  .hero-row span:last-child { font-weight: 600; }
+  .pencil-btn {
+    position: absolute;
+    top: 18px;
+    right: 18px;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    font-size: 14px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pencil-btn:hover { color: var(--pool-deep); border-color: var(--pool); }
   .edit-link {
     background: none;
     border: none;
@@ -442,13 +486,30 @@
     </div>
 
     <div id="profileTab" class="tabcontent hidden">
-      <div class="card" id="profileCard">
-        <div class="profile-row"><span class="profile-label">Имя</span><span class="profile-value" id="pvFirst"></span></div>
-        <div class="profile-row"><span class="profile-label">Фамилия</span><span class="profile-value" id="pvLast"></span></div>
-        <div class="profile-row"><span class="profile-label">Дата рождения</span><span class="profile-value" id="pvBirth"></span></div>
-        <div class="profile-row"><span class="profile-label">Способ плавания</span><span class="profile-value" id="pvStroke"></span></div>
-        <div class="profile-row"><span class="profile-label">Уровень плавания</span><span class="profile-value" id="pvLevel"></span></div>
-        <button class="edit-link" style="margin-top: 12px;" onclick="showRegistration(true)">Изменить</button>
+      <div class="hero-card">
+        <button class="pencil-btn" onclick="showRegistration(true)" aria-label="Изменить">✎</button>
+        <div class="hero-name" id="heroName"></div>
+        <div class="hero-rows">
+          <div class="hero-row"><span>Способ плавания</span><span id="pvStroke"></span></div>
+          <div class="hero-row"><span>Уровень плавания</span><span id="pvLevel"></span></div>
+          <div class="hero-row"><span>Дата рождения</span><span id="pvBirth"></span></div>
+        </div>
+      </div>
+
+      <div class="card" id="statsCard">
+        <div class="stat-row">
+          <div class="stat"><div class="stat-num" id="statVolume">0 м</div><div class="stat-label">всего проплыто</div></div>
+        </div>
+        <div class="stat-row">
+          <div class="stat"><div class="stat-num" id="statWeek">0 м</div><div class="stat-label">на этой неделе</div></div>
+          <div class="stat"><div class="stat-num" id="statMonth">0 м</div><div class="stat-label">в этом месяце</div></div>
+        </div>
+        <div class="hero-row"><span>Тренировок завершено</span><span id="statWorkouts">0</span></div>
+        <button class="edit-link" id="chartToggleBtn" onclick="toggleChart()" style="margin-top: 10px;">Подробнее →</button>
+      </div>
+      <div id="chartCard" class="card hidden">
+        <div class="section-title" style="margin-top: 0;">Метраж по неделям</div>
+        <div id="volumeChart"></div>
       </div>
     </div>
 
@@ -600,6 +661,9 @@ document.querySelectorAll('.navbtn').forEach(btn => {
     if (btn.dataset.tab === 'calendarTab') {
       renderCalendar();
     }
+    if (btn.dataset.tab === 'profileTab') {
+      renderProfileStats();
+    }
   });
 });
 
@@ -622,11 +686,93 @@ function personalizeText(text) {
 
 function updateProfileSummary() {
   if (!profile) return;
-  document.getElementById('pvFirst').textContent = profile.firstName || '—';
-  document.getElementById('pvLast').textContent = profile.lastName || '—';
+  document.getElementById('heroName').textContent = `${profile.firstName} ${profile.lastName}`.trim();
   document.getElementById('pvBirth').textContent = formatBirthDate(profile.birthDate);
   document.getElementById('pvStroke').textContent = STROKE_LABEL[profile.stroke] || '—';
   document.getElementById('pvLevel').textContent = LEVEL_LABEL[profile.level] || '—';
+}
+
+// Извлекает метраж из текста задания: считает "N×Mм" как N*M, отдельные "Nм" — как есть
+function parseTaskMeters(text) {
+  let total = 0;
+  const multRe = /(\d+)\s*×\s*(\d+)\s*м(?![а-яё])/gi;
+  let m;
+  while ((m = multRe.exec(text)) !== null) {
+    total += parseInt(m[1], 10) * parseInt(m[2], 10);
+  }
+  const withoutMult = text.replace(multRe, ' ');
+  const singleRe = /(\d+)\s*м(?![а-яё])/gi;
+  let m2;
+  while ((m2 = singleRe.exec(withoutMult)) !== null) {
+    total += parseInt(m2[1], 10);
+  }
+  return total;
+}
+
+function formatVolume(m) {
+  if (m >= 1000) return `${(m / 1000).toFixed(1).replace(/\.0$/, '')} км`;
+  return `${m} м`;
+}
+
+function volumeSum(history) {
+  return history.reduce((sum, h) => sum + h.tasks.reduce((s, t) => s + parseTaskMeters(t), 0), 0);
+}
+
+async function renderProfileStats() {
+  const history = await loadState('swimdemo_history', []);
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const weekStart = startOfWeek(now);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const allVol = volumeSum(history);
+  const weekVol = volumeSum(history.filter(h => new Date(h.date) >= weekStart));
+  const monthVol = volumeSum(history.filter(h => new Date(h.date) >= monthStart));
+
+  document.getElementById('statVolume').textContent = formatVolume(allVol);
+  document.getElementById('statWeek').textContent = formatVolume(weekVol);
+  document.getElementById('statMonth').textContent = formatVolume(monthVol);
+  document.getElementById('statWorkouts').textContent = history.length;
+
+  renderVolumeChart(history);
+}
+
+function toggleChart() {
+  const card = document.getElementById('chartCard');
+  card.classList.toggle('hidden');
+  document.getElementById('chartToggleBtn').textContent = card.classList.contains('hidden') ? 'Подробнее →' : 'Скрыть';
+}
+
+function buildWeeklyBuckets(history, weeks) {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const currentWeekStart = startOfWeek(now);
+  const buckets = [];
+  for (let i = weeks - 1; i >= 0; i--) {
+    const s = new Date(currentWeekStart); s.setDate(currentWeekStart.getDate() - 7 * i);
+    const e = new Date(s); e.setDate(s.getDate() + 7);
+    const vol = volumeSum(history.filter(h => { const d = new Date(h.date); return d >= s && d < e; }));
+    buckets.push({ start: s, volume: vol });
+  }
+  return buckets;
+}
+
+function renderVolumeChart(history) {
+  const buckets = buildWeeklyBuckets(history, 8);
+  const max = Math.max(1, ...buckets.map(b => b.volume));
+  const w = 320, h = 130, chartH = h - 24;
+  const slot = w / buckets.length;
+  const barW = slot - 8;
+  const bars = buckets.map((b, i) => {
+    const barH = Math.round((b.volume / max) * chartH);
+    const x = i * slot + 4;
+    const y = h - barH - 16;
+    const label = b.volume >= 1000 ? (b.volume / 1000).toFixed(1) + 'к' : (b.volume || '');
+    return `
+      <rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH, b.volume > 0 ? 3 : 0)}" rx="3" fill="var(--pool)"></rect>
+      ${label ? `<text x="${x + barW / 2}" y="${y - 4}" font-size="8" fill="var(--ink-soft)" text-anchor="middle">${label}</text>` : ''}
+      <text x="${x + barW / 2}" y="${h - 4}" font-size="7" fill="var(--ink-soft)" text-anchor="middle">${pad2(b.start.getDate())}.${pad2(b.start.getMonth() + 1)}</text>
+    `;
+  }).join('');
+  document.getElementById('volumeChart').innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="140" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
 }
 
 function formatBirthDate(iso) {
@@ -894,6 +1040,7 @@ function renderDayDetails(map) {
   }
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
   renderWorkout();
+  await renderProfileStats();
 })();
 </script>
 </body>
