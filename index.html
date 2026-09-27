@@ -284,6 +284,96 @@
   }
   .navbtn .nav-icon { font-size: 19px; line-height: 1; }
   .navbtn.active { color: var(--pool-deep); font-weight: 600; }
+
+  .cal-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .cal-nav-btn {
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    font-size: 16px;
+    padding: 0;
+  }
+  .cal-label {
+    font-family: 'Space Grotesk', sans-serif;
+    font-weight: 600;
+    font-size: 15px;
+    text-transform: capitalize;
+  }
+  .view-toggle {
+    display: flex;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 3px;
+    margin-bottom: 16px;
+  }
+  .view-toggle-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    color: var(--ink-soft);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px;
+    border-radius: 6px;
+  }
+  .view-toggle-btn.active {
+    background: var(--pool-deep);
+    color: white;
+  }
+  .cal-grid-month {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+  }
+  .cal-weekday {
+    text-align: center;
+    font-size: 11px;
+    color: var(--ink-soft);
+    padding-bottom: 4px;
+  }
+  .cal-day {
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    border-radius: 8px;
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    padding: 0;
+  }
+  .cal-day-outside { opacity: 0.3; }
+  .cal-day-today { border-color: var(--pool); border-width: 2px; }
+  .cal-day-active {
+    background: var(--success);
+    border-color: var(--success);
+    color: white;
+    font-weight: 700;
+  }
+  .cal-day-selected { outline: 2px solid var(--amber); outline-offset: 1px; }
+  .cal-grid-week {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-day-week {
+    aspect-ratio: auto;
+    height: 64px;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .cal-day-wd { font-size: 10.5px; color: inherit; opacity: 0.8; }
+  .cal-day-num { font-size: 15px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -345,10 +435,20 @@
         <div class="profile-row"><span class="profile-label">Уровень плавания</span><span class="profile-value" id="pvLevel"></span></div>
         <button class="edit-link" style="margin-top: 12px;" onclick="showRegistration(true)">Изменить</button>
       </div>
+    </div>
 
-      <div class="section-title">История тренировок</div>
-      <div id="historyList"></div>
-      <div id="historyEmpty" class="empty">Пока нет завершённых тренировок</div>
+    <div id="calendarTab" class="tabcontent hidden">
+      <div class="cal-toolbar">
+        <button class="cal-nav-btn" onclick="calPrev()">‹</button>
+        <div class="cal-label" id="calendarLabel"></div>
+        <button class="cal-nav-btn" onclick="calNext()">›</button>
+      </div>
+      <div class="view-toggle">
+        <button class="view-toggle-btn active" data-view="month" onclick="setCalendarView('month')">Месяц</button>
+        <button class="view-toggle-btn" data-view="week" onclick="setCalendarView('week')">Неделя</button>
+      </div>
+      <div id="calendarGrid" class="cal-grid"></div>
+      <div id="calendarDetails"></div>
     </div>
 
   </div>
@@ -356,6 +456,7 @@
 
 <nav class="bottomnav hidden" id="bottomNav">
   <button class="navbtn active" data-tab="trainTab"><span class="nav-icon">🏊</span>Тренировка</button>
+  <button class="navbtn" data-tab="calendarTab"><span class="nav-icon">📅</span>Календарь</button>
   <button class="navbtn" data-tab="profileTab"><span class="nav-icon">👤</span>Профиль</button>
 </nav>
 
@@ -440,7 +541,6 @@ const TYPE_LABEL = { aerobic: 'Аэробная', anaerobic: 'Анаэробна
 
 let profile = null;
 let workout = { state: 'idle', tasks: [], startedAt: null };
-const expandedHistory = new Set();
 
 const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
 const cloud = (tg && tg.CloudStorage) ? tg.CloudStorage : null;
@@ -482,8 +582,8 @@ document.querySelectorAll('.navbtn').forEach(btn => {
     document.querySelectorAll('.tabcontent').forEach(p => p.classList.add('hidden'));
     btn.classList.add('active');
     document.getElementById(btn.dataset.tab).classList.remove('hidden');
-    if (btn.dataset.tab === 'profileTab') {
-      renderHistory();
+    if (btn.dataset.tab === 'calendarTab') {
+      renderCalendar();
     }
   });
 });
@@ -603,7 +703,6 @@ async function finishSwim() {
   workout = { state: 'idle', tasks: [], startedAt: null };
   await saveState('swimdemo_workout', workout);
   renderWorkout();
-  renderHistory();
 }
 
 function renderWorkout() {
@@ -644,39 +743,127 @@ function renderWorkout() {
   }
 }
 
-async function renderHistory() {
+async function getHistoryMap() {
   const history = await loadState('swimdemo_history', []);
-  const wrap = document.getElementById('historyList');
-  const empty = document.getElementById('historyEmpty');
-  if (!history.length) {
-    wrap.innerHTML = '';
-    empty.classList.remove('hidden');
-    return;
-  }
-  empty.classList.add('hidden');
-  wrap.innerHTML = history.map(h => {
-    const expanded = expandedHistory.has(h.id);
-    return `
-    <div class="history-item">
-      <div class="history-top" onclick="toggleHistory(${h.id})">
-        <div>
-          <div class="history-date">${h.date}</div>
-          <div>
-            ${h.type ? `<span class="badge">${TYPE_LABEL[h.type] || h.type}</span>` : ''}
-            <span class="badge">${LEVEL_LABEL[h.level] || h.level}</span>
-            <span class="badge">${STROKE_LABEL[h.stroke] || h.stroke}</span>
-          </div>
-        </div>
-        <div class="history-meta">${h.tasks.length} задан.${h.durationMin ? ' · ' + h.durationMin + ' мин' : ''}</div>
-      </div>
-      ${expanded ? `<div class="history-tasks">${h.tasks.map((t, i) => `<div class="history-task">${i + 1}. ${t}</div>`).join('')}</div>` : ''}
-    </div>`;
-  }).join('');
+  const map = {};
+  history.forEach(h => { (map[h.date] = map[h.date] || []).push(h); });
+  return map;
 }
 
-function toggleHistory(id) {
-  if (expandedHistory.has(id)) expandedHistory.delete(id); else expandedHistory.add(id);
-  renderHistory();
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+function toISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function startOfWeek(date) {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function monthMatrix(date) {
+  const year = date.getFullYear(), month = date.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7;
+  const gridStart = new Date(year, month, 1 - startOffset);
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    days.push(d);
+  }
+  return days;
+}
+
+let calendarView = 'month';
+let calendarDate = new Date();
+let selectedDate = null;
+
+function calPrev() {
+  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1);
+  else calendarDate.setDate(calendarDate.getDate() - 7);
+  renderCalendar();
+}
+function calNext() {
+  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() + 1);
+  else calendarDate.setDate(calendarDate.getDate() + 7);
+  renderCalendar();
+}
+function setCalendarView(v) {
+  calendarView = v;
+  renderCalendar();
+}
+function selectCalendarDay(iso) {
+  selectedDate = (selectedDate === iso) ? null : iso;
+  renderCalendar();
+}
+
+const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+async function renderCalendar() {
+  const map = await getHistoryMap();
+  const label = document.getElementById('calendarLabel');
+  const grid = document.getElementById('calendarGrid');
+  document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.view === calendarView));
+  const todayISO = toISODate(new Date());
+
+  if (calendarView === 'month') {
+    label.textContent = `${MONTH_NAMES[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`;
+    const days = monthMatrix(calendarDate);
+    grid.className = 'cal-grid cal-grid-month';
+    grid.innerHTML = WEEKDAYS.map(d => `<div class="cal-weekday">${d}</div>`).join('') +
+      days.map(d => {
+        const iso = toISODate(d);
+        const classes = ['cal-day'];
+        if (d.getMonth() !== calendarDate.getMonth()) classes.push('cal-day-outside');
+        if (map[iso]) classes.push('cal-day-active');
+        if (iso === todayISO) classes.push('cal-day-today');
+        if (iso === selectedDate) classes.push('cal-day-selected');
+        return `<button class="${classes.join(' ')}" onclick="selectCalendarDay('${iso}')">${d.getDate()}</button>`;
+      }).join('');
+  } else {
+    const start = startOfWeek(calendarDate);
+    const end = new Date(start); end.setDate(start.getDate() + 6);
+    const fmt = d => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
+    label.textContent = `${fmt(start)} – ${fmt(end)}`;
+    grid.className = 'cal-grid cal-grid-week';
+    grid.innerHTML = Array.from({ length: 7 }).map((_, i) => {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      const iso = toISODate(d);
+      const classes = ['cal-day', 'cal-day-week'];
+      if (map[iso]) classes.push('cal-day-active');
+      if (iso === todayISO) classes.push('cal-day-today');
+      if (iso === selectedDate) classes.push('cal-day-selected');
+      return `<button class="${classes.join(' ')}" onclick="selectCalendarDay('${iso}')"><span class="cal-day-wd">${WEEKDAYS[i]}</span><span class="cal-day-num">${d.getDate()}</span></button>`;
+    }).join('');
+  }
+
+  renderDayDetails(map);
+}
+
+function renderDayDetails(map) {
+  const wrap = document.getElementById('calendarDetails');
+  if (!selectedDate) { wrap.innerHTML = ''; return; }
+  const entries = map[selectedDate];
+  const [y, m, d] = selectedDate.split('-');
+  const dateLabel = `${d}.${m}.${y}`;
+  if (!entries) {
+    wrap.innerHTML = `<div class="section-title">${dateLabel}</div><div class="empty">В этот день тренировок не было</div>`;
+    return;
+  }
+  wrap.innerHTML = `<div class="section-title">${dateLabel}</div>` + entries.map(h => `
+    <div class="history-item">
+      <div>
+        ${h.type ? `<span class="badge">${TYPE_LABEL[h.type] || h.type}</span>` : ''}
+        <span class="badge">${LEVEL_LABEL[h.level] || h.level}</span>
+        <span class="badge">${STROKE_LABEL[h.stroke] || h.stroke}</span>
+        ${h.durationMin ? `<span class="badge">${h.durationMin} мин</span>` : ''}
+      </div>
+      <div class="history-tasks" style="border-top: none; margin-top: 8px; padding-top: 0;">
+        ${h.tasks.map((t, i) => `<div class="history-task">${i + 1}. ${t}</div>`).join('')}
+      </div>
+    </div>
+  `).join('');
 }
 
 (async function init() {
@@ -696,7 +883,6 @@ function toggleHistory(id) {
   }
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
   renderWorkout();
-  await renderHistory();
 })();
 </script>
 </body>
