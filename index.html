@@ -396,9 +396,6 @@
 </head>
 <body>
 <div class="wrap">
-  <p class="sub" id="subGreeting"></p>
-  <div class="lanes"></div>
-
   <div id="regScreen" class="card hidden">
     <label for="regFirst">Имя</label>
     <input type="text" id="regFirst" placeholder="Имя">
@@ -888,10 +885,6 @@ function renderDayDetails(map) {
   if (tg) {
     tg.ready();
     tg.expand();
-    const user = tg.initDataUnsafe && tg.initDataUnsafe.user;
-    if (user && user.first_name) {
-      document.getElementById('subGreeting').textContent = `Привет, ${user.first_name}!`;
-    }
   }
   profile = await loadState('swimdemo_profile', null);
   if (!profile) {
