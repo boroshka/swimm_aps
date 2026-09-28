@@ -369,6 +369,34 @@
   .navbtn svg.i { width: 22px; height: 22px; }
   .navbtn.active { color: var(--blue); background: rgba(108, 155, 255, 0.14); }
 
+  /* ---------- Рейтинг ---------- */
+  .rank-row {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 18px; padding: 12px 14px; margin-bottom: 8px;
+  }
+  .rank-num {
+    flex: none; width: 30px; height: 30px; border-radius: 50%;
+    background: var(--surface-2); display: grid; place-items: center;
+    font-size: 13px; font-weight: 800; color: var(--soft);
+  }
+  .rank-row:nth-child(1) .rank-num { background: var(--blue); color: var(--dark); }
+  .rank-row:nth-child(2) .rank-num { background: var(--rose); color: var(--dark); }
+  .rank-info { flex: 1; min-width: 0; }
+  .rank-name { font-size: 14.5px; font-weight: 700; }
+  .rank-meta { font-size: 12.5px; color: var(--soft); margin-top: 2px; }
+  .rank-result { flex: none; text-align: right; }
+  .rank-time { font-size: 16px; font-weight: 800; }
+  .rank-date { font-size: 11.5px; color: var(--soft); }
+  .rank-status { text-align: center; color: var(--soft); font-size: 14px; padding: 30px 10px; font-weight: 600; }
+  .rank-status.err { color: var(--danger); }
+  .filter-toggle { display: flex; gap: 8px; }
+  .filter-toggle button {
+    flex: 1; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 10px; font-size: 13.5px; font-weight: 700; color: var(--soft);
+  }
+  .filter-toggle button.on { background: var(--blue); color: var(--dark); border-color: transparent; }
+
   /* ---------- Modal ---------- */
   .modal-overlay {
     position: fixed; inset: 0;
@@ -479,6 +507,58 @@
       <div id="calendarDetails"></div>
     </div>
 
+    <!-- ===== Рейтинг ===== -->
+    <div id="ratingTab" class="tabcontent hidden">
+      <h1>Рейтинг ФВВСР</h1>
+      <div class="panel" style="margin-bottom:16px">
+        <label for="rkDiscipline">Дисциплина</label>
+        <select id="rkDiscipline">
+          <option value="FREE50">вольный стиль 50 м</option>
+          <option value="FREE100">вольный стиль 100 м</option>
+          <option value="FREE200" selected>вольный стиль 200 м</option>
+          <option value="FREE400">вольный стиль 400 м</option>
+          <option value="FREE800">вольный стиль 800 м</option>
+          <option value="FREE1500">вольный стиль 1500 м</option>
+          <option value="BACK50">на спине 50 м</option>
+          <option value="BACK100">на спине 100 м</option>
+          <option value="BACK200">на спине 200 м</option>
+          <option value="BREAST50">брасс 50 м</option>
+          <option value="BREAST100">брасс 100 м</option>
+          <option value="BREAST200">брасс 200 м</option>
+          <option value="FLY50">баттерфляй 50 м</option>
+          <option value="FLY100">баттерфляй 100 м</option>
+          <option value="FLY200">баттерфляй 200 м</option>
+          <option value="MEDLEY200">комплекс 200 м</option>
+          <option value="MEDLEY400">комплекс 400 м</option>
+        </select>
+
+        <label>Пол</label>
+        <div class="filter-toggle" id="rkGenderToggle" style="margin-bottom:16px">
+          <button type="button" data-val="1" class="on">Муж.</button>
+          <button type="button" data-val="2">Жен.</button>
+        </div>
+
+        <label for="rkPool">Бассейн</label>
+        <select id="rkPool">
+          <option value="">Любой</option>
+          <option value="50">50 м</option>
+          <option value="25">25 м</option>
+        </select>
+
+        <label for="rkName">Имя спортсмена (необязательно)</label>
+        <input type="text" id="rkName" placeholder="Например: Иванов">
+
+        <div class="btn-row">
+          <input type="number" id="rkMinAge" placeholder="Возраст от" inputmode="numeric" style="margin-bottom:0">
+          <input type="number" id="rkMaxAge" placeholder="Возраст до" inputmode="numeric" style="margin-bottom:0">
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn" onclick="fetchRating()">Найти</button>
+        </div>
+      </div>
+      <div id="ratingResults"></div>
+    </div>
+
     <!-- ===== Профиль ===== -->
     <div id="profileTab" class="tabcontent hidden">
       <h1>Профиль</h1>
@@ -551,6 +631,9 @@
   </button>
   <button class="navbtn" data-tab="calendarTab">
     <svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>Календарь
+  </button>
+  <button class="navbtn" data-tab="ratingTab">
+    <svg class="i" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5"/></svg>Рейтинг
   </button>
   <button class="navbtn" data-tab="profileTab">
     <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Профиль
@@ -662,6 +745,106 @@ let selectedDate = null;
 let editingHistoryId = null;
 let chartMode = 'weeks';
 let chartIdx = null;
+
+/* ============================================================
+   Рейтинг ФВВСР (rsf.lsport.net через собственный прокси)
+   ============================================================ */
+// ЗАПОЛНИТЕ после разворачивания прокси на Cloudflare Workers:
+// например "https://rsf-proxy.ваш-логин.workers.dev"
+const RATING_WORKER_URL = "https://damp-frog-abc6.danilaboronin.workers.dev";
+
+const RATING_SPORT_ID = "01f02e8d-6da4-43be-9dbf-05d47ab8a58d";
+let rkGender = 1;
+
+document.querySelectorAll('#rkGenderToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    rkGender = parseInt(btn.dataset.val, 10);
+    document.querySelectorAll('#rkGenderToggle button').forEach(b => b.classList.toggle('on', b === btn));
+  });
+});
+
+async function fetchRating() {
+  const box = $('ratingResults');
+  if (!RATING_WORKER_URL) {
+    box.innerHTML = `<div class="rank-status err">Рейтинг ещё не настроен. Нужно указать адрес прокси в переменной RATING_WORKER_URL в коде приложения.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="rank-status">Ищем результаты…</div>`;
+
+  const options = {
+    minAge: $('rkMinAge').value ? parseInt($('rkMinAge').value, 10) : null,
+    maxAge: $('rkMaxAge').value ? parseInt($('rkMaxAge').value, 10) : null,
+    alias: $('rkDiscipline').value,
+    pool: $('rkPool').value ? parseInt($('rkPool').value, 10) : null,
+    locations: [],
+    name: $('rkName').value.trim()
+  };
+  if (options.pool) options.strict = true;
+
+  const body = {
+    sort: [{ field: 'Result', dir: 'asc' }],
+    page: 1, pageSize: 50, skip: 0, take: 50,
+    sportID: RATING_SPORT_ID,
+    genderID: rkGender,
+    unique: false,
+    options: JSON.stringify(options)
+  };
+
+  try {
+    const resp = await fetch(RATING_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body)
+    });
+    const raw = await resp.text();
+    if (!resp.ok) {
+      box.innerHTML = `<div class="rank-status err">Ошибка HTTP ${resp.status}. Ответ сервера ниже — скопируйте его и пришлите в чат:</div>
+        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(raw)}</textarea>`;
+      return;
+    }
+    let rows;
+    try {
+      rows = JSON.parse(raw);
+    } catch (parseErr) {
+      box.innerHTML = `<div class="rank-status err">Сервер ответил не тем, что ожидалось. Ответ ниже — скопируйте его и пришлите в чат:</div>
+        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(raw.slice(0, 3000))}</textarea>`;
+      return;
+    }
+    if (!Array.isArray(rows)) {
+      box.innerHTML = `<div class="rank-status err">Сервер ответил не списком результатов. Ответ ниже — скопируйте его и пришлите в чат:</div>
+        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(JSON.stringify(rows).slice(0, 3000))}</textarea>`;
+      return;
+    }
+    renderRating(rows);
+  } catch (e) {
+    box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
+  }
+}
+
+function renderRating(rows) {
+  const box = $('ratingResults');
+  if (!rows || !rows.length) {
+    box.innerHTML = `<div class="rank-status">По этим фильтрам ничего не найдено.</div>`;
+    return;
+  }
+  box.innerHTML = rows.map((r, i) => {
+    const p = (r.Persons && r.Persons[0]) || {};
+    const region = (p.City && p.City.RegionTiny) || '';
+    const dateStr = r.Date ? new Date(r.Date).toLocaleDateString('ru-RU') : '';
+    return `
+    <div class="rank-row">
+      <div class="rank-num">${i + 1}</div>
+      <div class="rank-info">
+        <div class="rank-name">${esc((p.LastName || '') + ' ' + (p.FirstName || ''))}</div>
+        <div class="rank-meta">${esc(p.BirthYear || '')}${region ? ' · ' + esc(region) : ''}</div>
+      </div>
+      <div class="rank-result">
+        <div class="rank-time">${esc(r.FormattedResult || '—')}</div>
+        <div class="rank-date">${esc(dateStr)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
 const cloud = (tg && tg.CloudStorage) ? tg.CloudStorage : null;
