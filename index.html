@@ -10,15 +10,15 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #EAF3F7;
-    --ink-soft: #8FA9BD;
-    --pool: #3D9BE0;
-    --pool-deep: #2C7FC1;
-    --amber: #E8A94A;
-    --success: #4FBF83;
-    --bg: #071B2E;
-    --card: #0E2A42;
-    --line: #1C3B52;
+    --ink: #E8F1F7;
+    --ink-soft: #7C97AC;
+    --pool: #2C7FC1;
+    --pool-deep: #1F5E91;
+    --amber: #D99A3E;
+    --success: #3FA873;
+    --bg: #050E1A;
+    --card: #0B1F30;
+    --line: #16293B;
   }
 
   * { box-sizing: border-box; }
@@ -69,7 +69,7 @@
     margin-bottom: 6px;
     font-weight: 500;
   }
-  select, input {
+  select, input, textarea {
     width: 100%;
     padding: 10px 12px;
     border: 1px solid var(--line);
@@ -80,7 +80,8 @@
     font-size: 14px;
     margin-bottom: 14px;
   }
-  select:focus, input:focus, button:focus-visible {
+  textarea { resize: vertical; line-height: 1.4; }
+  select:focus, input:focus, textarea:focus, button:focus-visible {
     outline: 2px solid var(--pool);
     outline-offset: 1px;
   }
@@ -329,6 +330,82 @@
   .navbtn .nav-icon { font-size: 19px; line-height: 1; }
   .navbtn.active { color: var(--pool-deep); font-weight: 600; }
 
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    z-index: 50;
+  }
+  .modal-card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 20px;
+    width: 100%;
+    max-width: 420px;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  .train-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    padding: 30px 20px 46px;
+    margin-bottom: 16px;
+    background: linear-gradient(120deg, #0E2A40, var(--pool-deep), #0E2A40);
+    background-size: 200% 200%;
+    animation: gradientShift 7s ease-in-out infinite;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .train-hero-btn {
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 12px 22px;
+    border-radius: 999px;
+    width: auto;
+    position: relative;
+    z-index: 2;
+    backdrop-filter: blur(2px);
+  }
+  .train-hero-btn:hover { background: rgba(255, 255, 255, 0.24); }
+  .wave-wrap {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 38px;
+    overflow: hidden;
+  }
+  .wave-svg {
+    position: absolute;
+    bottom: 0; left: 0;
+    width: 200%;
+    height: 100%;
+    animation: waveMove 9s linear infinite;
+  }
+  .wave-svg-2 {
+    animation-duration: 14s;
+    animation-direction: reverse;
+  }
+  @keyframes waveMove {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+  @keyframes gradientShift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
   .cal-toolbar {
     display: flex;
     align-items: center;
@@ -467,6 +544,17 @@
   <div id="mainScreen" class="hidden">
 
     <div id="trainTab" class="tabcontent">
+      <div class="train-hero">
+        <button class="train-hero-btn" onclick="openManualWorkout()">+ Добавить свою тренировку</button>
+        <div class="wave-wrap">
+          <svg class="wave-svg" viewBox="0 0 1200 60" preserveAspectRatio="none">
+            <path d="M0,30 C150,60 350,0 600,30 C850,60 1050,0 1200,30 L1200,60 L0,60 Z" fill="rgba(255,255,255,0.18)"/>
+          </svg>
+          <svg class="wave-svg wave-svg-2" viewBox="0 0 1200 60" preserveAspectRatio="none">
+            <path d="M0,30 C150,0 350,60 600,30 C850,0 1050,60 1200,30 L1200,60 L0,60 Z" fill="rgba(255,255,255,0.28)"/>
+          </svg>
+        </div>
+      </div>
       <div id="generatorCard" class="card">
         <label for="type">Тип нагрузки</label>
         <select id="type">
@@ -482,7 +570,6 @@
         <div id="taskList"></div>
         <div id="workoutActions" style="margin-top: 6px;"></div>
       </div>
-      <div id="genEmpty" class="empty">Выберите тип нагрузки, затем нажмите «Сгенерировать»</div>
     </div>
 
     <div id="profileTab" class="tabcontent hidden">
@@ -524,9 +611,33 @@
         <button class="view-toggle-btn" data-view="week" onclick="setCalendarView('week')">Неделя</button>
       </div>
       <div id="calendarGrid" class="cal-grid"></div>
+
       <div id="calendarDetails"></div>
     </div>
 
+  </div>
+</div>
+
+<div id="manualWorkoutOverlay" class="modal-overlay hidden">
+  <div class="modal-card">
+    <label for="mwDate">Дата</label>
+    <input type="date" id="mwDate">
+    <label for="mwType">Тип нагрузки</label>
+    <select id="mwType">
+      <option value="">Не указан</option>
+      <option value="aerobic">Аэробная</option>
+      <option value="anaerobic">Анаэробная</option>
+      <option value="sprint">Спринтерская (триатлон)</option>
+      <option value="distance">Стайерская</option>
+    </select>
+    <label for="mwTasks">Задания (каждое с новой строки)</label>
+    <textarea id="mwTasks" rows="5" placeholder="10×100м вольный стиль, отдых 15 сек"></textarea>
+    <label for="mwDuration">Длительность, мин (необязательно)</label>
+    <input type="number" id="mwDuration" placeholder="Например: 45">
+    <div style="display: flex; gap: 8px;">
+      <button class="btn-primary" style="flex: 1;" onclick="saveManualWorkout()">Сохранить</button>
+      <button class="swap-btn" style="flex: 1;" onclick="closeManualWorkout()">Отмена</button>
+    </div>
   </div>
 </div>
 
@@ -869,7 +980,6 @@ async function finishSwim() {
 function renderWorkout() {
   const genCard = document.getElementById('generatorCard');
   const card = document.getElementById('workoutCard');
-  const empty = document.getElementById('genEmpty');
   const list = document.getElementById('taskList');
   const actions = document.getElementById('workoutActions');
   const statusLabel = document.getElementById('workoutStatus');
@@ -877,12 +987,10 @@ function renderWorkout() {
   if (workout.state === 'idle' || !workout.tasks.length) {
     genCard.classList.remove('hidden');
     card.classList.add('hidden');
-    empty.classList.remove('hidden');
     return;
   }
 
   genCard.classList.add('hidden');
-  empty.classList.add('hidden');
   card.classList.remove('hidden');
 
   const locked = workout.state === 'active';
@@ -937,6 +1045,7 @@ function monthMatrix(date) {
 let calendarView = 'month';
 let calendarDate = new Date();
 let selectedDate = null;
+let editingHistoryId = null;
 
 function calPrev() {
   if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1);
@@ -1023,8 +1132,79 @@ function renderDayDetails(map) {
       <div class="history-tasks" style="border-top: none; margin-top: 8px; padding-top: 0;">
         ${h.tasks.map((t, i) => `<div class="history-task">${i + 1}. ${t}</div>`).join('')}
       </div>
+      <div style="display: flex; gap: 16px; margin-top: 8px;">
+        <button class="del" onclick="editHistoryEntry(${h.id})">редактировать</button>
+        <button class="del" onclick="deleteHistoryEntry(${h.id})">удалить</button>
+      </div>
     </div>
   `).join('');
+}
+
+function openManualWorkout() {
+  editingHistoryId = null;
+  document.getElementById('manualWorkoutOverlay').classList.remove('hidden');
+  document.getElementById('mwDate').value = selectedDate || toISODate(new Date());
+  document.getElementById('mwType').value = '';
+  document.getElementById('mwTasks').value = '';
+  document.getElementById('mwDuration').value = '';
+}
+
+async function editHistoryEntry(id) {
+  const history = await loadState('swimdemo_history', []);
+  const h = history.find(x => x.id === id);
+  if (!h) return;
+  editingHistoryId = id;
+  document.getElementById('manualWorkoutOverlay').classList.remove('hidden');
+  document.getElementById('mwDate').value = h.date;
+  document.getElementById('mwType').value = h.type || '';
+  document.getElementById('mwTasks').value = h.tasks.join('\n');
+  document.getElementById('mwDuration').value = h.durationMin || '';
+}
+
+function closeManualWorkout() {
+  editingHistoryId = null;
+  document.getElementById('manualWorkoutOverlay').classList.add('hidden');
+}
+
+async function saveManualWorkout() {
+  const date = document.getElementById('mwDate').value;
+  const type = document.getElementById('mwType').value || null;
+  const tasksRaw = document.getElementById('mwTasks').value.trim();
+  const durationVal = document.getElementById('mwDuration').value;
+  if (!date || !tasksRaw) return;
+  const tasks = tasksRaw.split('\n').map(t => t.trim()).filter(Boolean);
+  const durationMin = durationVal ? parseInt(durationVal, 10) : null;
+
+  const history = await loadState('swimdemo_history', []);
+  if (editingHistoryId) {
+    const idx = history.findIndex(x => x.id === editingHistoryId);
+    if (idx !== -1) {
+      history[idx] = { ...history[idx], date, type, tasks, durationMin };
+    }
+  } else {
+    history.unshift({
+      id: Date.now(),
+      date,
+      type,
+      level: profile.level,
+      stroke: profile.stroke,
+      tasks,
+      durationMin
+    });
+  }
+  await saveState('swimdemo_history', history);
+  closeManualWorkout();
+  selectedDate = date;
+  renderCalendar();
+  renderProfileStats();
+}
+
+async function deleteHistoryEntry(id) {
+  let history = await loadState('swimdemo_history', []);
+  history = history.filter(h => h.id !== id);
+  await saveState('swimdemo_history', history);
+  renderCalendar();
+  renderProfileStats();
 }
 
 (async function init() {
