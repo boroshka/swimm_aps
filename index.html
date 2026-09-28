@@ -2,624 +2,528 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0A0A09">
 <title>Пул задач — тренировки пловца</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #E8F1F7;
-    --ink-soft: #7C97AC;
-    --pool: #2C7FC1;
-    --pool-deep: #1F5E91;
-    --amber: #D99A3E;
-    --success: #3FA873;
-    --bg: #050E1A;
-    --card: #0B1F30;
-    --line: #16293B;
+    --bg: #0A0A09;
+    --surface: #161513;
+    --surface-2: #211F1C;
+    --line: rgba(255, 255, 255, 0.08);
+    --ink: #F6F3EC;
+    --soft: #8F8A80;
+    --orange: #FF9800;
+    --lime: #D4FF00;
+    --dark: #14130F;
+    --danger: #FF5A4D;
+    --font: 'Urbanist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { background: var(--bg); }
   body {
     margin: 0;
-    background: var(--bg);
+    background:
+      radial-gradient(120% 60% at 50% -10%, rgba(255, 152, 0, 0.09), transparent 60%),
+      var(--bg);
+    background-attachment: fixed;
     color: var(--ink);
-    font-family: 'IBM Plex Sans', sans-serif;
-    line-height: 1.5;
+    font-family: var(--font);
+    font-size: 15px;
+    line-height: 1.45;
     -webkit-font-smoothing: antialiased;
   }
   .wrap {
-    max-width: 640px;
+    max-width: 480px;
     margin: 0 auto;
-    padding: 28px 20px 110px;
-  }
-  h1 {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 26px;
-    font-weight: 600;
-    margin: 0 0 4px;
-    letter-spacing: -0.01em;
-  }
-  .sub {
-    color: var(--ink-soft);
-    font-size: 14px;
-    margin: 0 0 22px;
-  }
-  .lanes {
-    height: 6px;
-    background: repeating-linear-gradient(90deg, var(--pool) 0 18px, transparent 18px 26px);
-    border-radius: 3px;
-    margin-bottom: 24px;
-    opacity: 0.55;
-  }
-
-  .card {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 18px;
-    margin-bottom: 14px;
-  }
-  label {
-    display: block;
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin-bottom: 6px;
-    font-weight: 500;
-  }
-  select, input, textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: inherit;
-    font-size: 14px;
-    margin-bottom: 14px;
-  }
-  textarea { resize: vertical; line-height: 1.4; }
-  select:focus, input:focus, textarea:focus, button:focus-visible {
-    outline: 2px solid var(--pool);
-    outline-offset: 1px;
-  }
-  button {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 14px;
-    padding: 11px 18px;
-    border-radius: 7px;
-    border: none;
-    cursor: pointer;
-  }
-  .btn-primary {
-    background: var(--pool-deep);
-    color: white;
-    width: 100%;
-  }
-  .btn-primary:hover { background: var(--pool); }
-  .btn-finish {
-    background: var(--success);
-  }
-  .btn-finish:hover { opacity: 0.9; }
-
-  .task {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 13px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .task:last-child { border-bottom: none; }
-  .task-idx {
-    font-family: 'Space Grotesk', sans-serif;
-    color: var(--pool);
-    font-weight: 600;
-    font-size: 13px;
-    min-width: 20px;
-  }
-  .task-body { flex: 1; }
-  .task-text { font-size: 14.5px; }
-  .swap-btn {
-    background: transparent;
-    color: var(--ink-soft);
-    border: 1px solid var(--line);
-    font-size: 12px;
-    padding: 6px 10px;
-    white-space: nowrap;
-  }
-  .swap-btn:hover { color: var(--pool-deep); border-color: var(--pool); }
-
-  .empty {
-    color: var(--ink-soft);
-    font-size: 14px;
-    text-align: center;
-    padding: 30px 10px;
-  }
-
-  .workout-status {
-    display: inline-block;
-    background: var(--amber);
-    color: white;
-    font-size: 11.5px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 999px;
-    margin-bottom: 12px;
-  }
-
-  .result-item {
-    padding: 12px 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .result-item:last-child { border-bottom: none; }
-  .result-top {
-    display: flex;
-    justify-content: space-between;
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 14.5px;
-  }
-  .result-date { color: var(--ink-soft); font-size: 12.5px; margin-top: 2px; }
-  .result-note { font-size: 13.5px; color: var(--ink-soft); margin-top: 4px; }
-  .del { color: var(--ink-soft); background: none; border: none; font-size: 12px; cursor: pointer; padding: 2px 4px; }
-  .del:hover { color: #C0392B; }
-
-  .stat-row {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 14px;
-  }
-  .stat {
-    flex: 1;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px;
-    text-align: center;
-  }
-  .stat-num {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 22px;
-    font-weight: 700;
-    color: var(--pool-deep);
-  }
-  .stat-label { font-size: 11.5px; color: var(--ink-soft); margin-top: 2px; }
-
-  .profile-line {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13px;
-    color: var(--ink-soft);
-    margin: 4px 0 20px;
-  }
-  .profile-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 9px 0;
-    border-bottom: 1px solid var(--line);
-    font-size: 14px;
-  }
-  .profile-row:last-of-type { border-bottom: none; }
-  .profile-label { color: var(--ink-soft); }
-  .profile-value { font-weight: 600; }
-
-  .hero-card {
-    position: relative;
-    background: linear-gradient(160deg, var(--card), var(--bg));
-    border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 22px 20px 18px;
-    margin-bottom: 14px;
-  }
-  .hero-name {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 700;
-    font-size: 23px;
-    letter-spacing: -0.01em;
-    padding-right: 40px;
-  }
-  .hero-rows { margin-top: 14px; }
-  .hero-row {
-    display: flex;
-    justify-content: space-between;
-    padding: 7px 0;
-    font-size: 13.5px;
-    border-bottom: 1px solid var(--line);
-  }
-  .hero-row:last-child { border-bottom: none; }
-  .hero-row span:first-child { color: var(--ink-soft); }
-  .hero-row span:last-child { font-weight: 600; }
-  .pencil-btn {
-    position: absolute;
-    top: 18px;
-    right: 18px;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--ink-soft);
-    font-size: 14px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  .pencil-btn:hover { color: var(--pool-deep); border-color: var(--pool); }
-  .edit-link {
-    background: none;
-    border: none;
-    color: var(--pool-deep);
-    font-size: 13px;
-    font-weight: 600;
-    padding: 0;
-    text-decoration: underline;
-    cursor: pointer;
+    padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 130px;
   }
   .hidden { display: none !important; }
-
-  .section-title {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 15px;
-    margin: 24px 0 10px;
+  button { font-family: inherit; cursor: pointer; color: inherit; }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
   }
-  .section-title:first-child { margin-top: 0; }
 
-  .badge {
-    display: inline-block;
-    background: var(--bg);
-    border: 1px solid var(--line);
-    color: var(--ink-soft);
-    font-size: 11px;
-    padding: 2px 8px;
+  h1 { font-size: 22px; font-weight: 700; text-align: center; margin: 4px 0 22px; letter-spacing: -0.01em; }
+  h2, h3 { margin: 0; }
+  .section-title { font-size: 17px; font-weight: 700; margin: 24px 0 12px; }
+  .soft { color: var(--soft); }
+
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%;
+    border: none;
     border-radius: 999px;
-    margin-right: 4px;
-    margin-top: 4px;
+    padding: 16px 22px;
+    font-size: 16px;
+    font-weight: 700;
+    background: var(--orange);
+    color: var(--dark);
+    transition: transform 0.12s ease, filter 0.15s ease;
   }
-  .history-item { padding: 12px 0; border-bottom: 1px solid var(--line); }
-  .history-item:last-child { border-bottom: none; }
-  .history-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    cursor: pointer;
+  .btn:active { transform: scale(0.98); }
+  .btn:hover { filter: brightness(1.06); }
+  .btn-lime { background: var(--lime); }
+  .btn-ghost {
+    background: transparent;
+    color: var(--soft);
+    border: 1px solid var(--line);
+    font-weight: 600;
   }
-  .history-date { font-family: 'Space Grotesk', sans-serif; font-weight: 600; font-size: 14px; }
-  .history-meta { font-size: 12px; color: var(--ink-soft); white-space: nowrap; text-align: right; }
-  .history-tasks {
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px dashed var(--line);
-    font-size: 13px;
-    color: var(--ink-soft);
+  .btn-row { display: flex; gap: 10px; }
+  .btn-row .btn { flex: 1; }
+  .link-btn {
+    background: none; border: none; padding: 6px 2px;
+    color: var(--orange); font-weight: 700; font-size: 14px;
   }
-  .history-task { padding: 3px 0; }
 
+  /* ---------- Forms ---------- */
+  label { display: block; font-size: 13px; font-weight: 600; color: var(--soft); margin: 0 0 6px 4px; }
+  select, input, textarea {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    background: #0F0E0D;
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 15px;
+    margin-bottom: 16px;
+    color-scheme: dark;
+  }
+  textarea { resize: vertical; line-height: 1.4; }
+  .form-error { color: var(--danger); font-size: 13px; font-weight: 600; margin: -6px 4px 14px; }
+
+  .panel {
+    background: linear-gradient(170deg, #1B1A17, #121110);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    padding: 22px 20px;
+  }
+  .panel .lead { margin: 0 0 20px; color: var(--soft); font-size: 14px; }
+  .panel h2 { font-size: 24px; font-weight: 800; letter-spacing: -0.015em; margin-bottom: 4px; }
+
+  /* ---------- Home header + hero ---------- */
+  .top {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 8px 20px 8px 8px;
+    margin-bottom: 16px;
+  }
+  .avatar {
+    width: 46px; height: 46px; border-radius: 50%;
+    background: var(--orange); color: var(--dark);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 20px; flex: none;
+  }
+  .hello-s { display: block; font-size: 13px; color: var(--soft); }
+  .hello-b { display: block; font-size: 16px; font-weight: 700; }
+
+  .hero {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    background: linear-gradient(160deg, #221F1A, #12110F);
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    padding: 22px 20px;
+    margin-bottom: 22px;
+  }
+  .hero-label { font-size: 13px; color: var(--soft); font-weight: 600; }
+  .hero-num { font-size: 40px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.05; margin: 2px 0 2px; }
+  .hero-num small { font-size: 17px; font-weight: 700; color: var(--soft); margin-left: 4px; letter-spacing: 0; }
+  .hero-meta { font-size: 14px; color: var(--soft); margin-bottom: 14px; }
+  .own-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--orange); color: var(--dark);
+    border: none; border-radius: 999px;
+    padding: 10px 10px 10px 18px;
+    font-weight: 700; font-size: 14px;
+  }
+  .own-btn .plus {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 1.5px solid rgba(20, 19, 15, 0.6);
+    display: grid; place-items: center;
+  }
+  .ring-small { position: relative; width: 84px; height: 84px; flex: none; }
+  .ring-small svg { width: 100%; height: 100%; }
+  .ring-small span {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    font-size: 15px; font-weight: 800;
+  }
+
+  /* ---------- Type pills ---------- */
+  .pills {
+    display: flex; gap: 10px; overflow-x: auto;
+    margin: 0 -20px; padding: 2px 20px 8px;
+    scrollbar-width: none;
+  }
+  .pills::-webkit-scrollbar { display: none; }
+  .pill {
+    flex: none; display: flex; align-items: center; gap: 10px;
+    padding: 6px 20px 6px 6px;
+    border-radius: 999px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    color: var(--ink);
+    font-size: 14px; font-weight: 600;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .pill .ico {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--surface-2);
+    display: grid; place-items: center;
+  }
+  .pill.on { background: var(--orange); color: var(--dark); border-color: transparent; }
+  .pill.on .ico { background: #fff; color: var(--dark); }
+  svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---------- Workout cards (with corner cut-out badge) ---------- */
+  .wcard {
+    --c: #2A2926;
+    position: relative;
+    background: var(--c);
+    color: var(--dark);
+    border-radius: 24px;
+    padding: 20px 20px 16px;
+    margin-bottom: 14px;
+  }
+  .wcard.t-aerobic { --c: #43E0CB; }
+  .wcard.t-anaerobic { --c: #A99CF5; }
+  .wcard.t-sprint { --c: #C9F26B; }
+  .wcard.t-distance { --c: #FFB454; }
+  .wcard.t-none { color: var(--ink); }
+  .cut {
+    position: absolute; top: -8px; right: -6px;
+    width: 64px; height: 64px; border-radius: 50%;
+    background: var(--ink); color: var(--dark);
+    border: 6px solid var(--bg);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    line-height: 1;
+  }
+  .cut b { font-size: 16px; font-weight: 800; }
+  .cut small { font-size: 10px; font-weight: 700; margin-top: 2px; letter-spacing: 0.02em; }
+  .wc-head { display: flex; gap: 12px; align-items: flex-start; padding-right: 50px; }
+  .wc-idx {
+    flex: none; width: 28px; height: 28px; border-radius: 50%;
+    background: rgba(0, 0, 0, 0.82); color: var(--ink);
+    display: grid; place-items: center; font-size: 13px; font-weight: 800;
+  }
+  .wc-title { font-size: 18px; font-weight: 800; line-height: 1.25; letter-spacing: -0.01em; margin-top: 2px; }
+  .wc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0, 0, 0, 0.14);
+    color: inherit;
+    border: none; border-radius: 999px;
+    padding: 6px 12px; font-size: 12.5px; font-weight: 700;
+  }
+  .t-none .chip { background: rgba(255, 255, 255, 0.08); }
+  button.chip:hover { background: rgba(0, 0, 0, 0.24); }
+  .t-none button.chip:hover { background: rgba(255, 255, 255, 0.16); }
+  .chip svg.i { width: 14px; height: 14px; stroke-width: 2.4; }
+  .wc-tasks { margin: 12px 0 0; padding: 0; list-style: none; font-size: 14px; font-weight: 600; }
+  .wc-tasks li { padding: 5px 0; border-top: 1px solid rgba(0, 0, 0, 0.12); display: flex; gap: 10px; }
+  .t-none .wc-tasks li { border-color: rgba(255, 255, 255, 0.1); }
+  .wc-tasks li:first-child { border-top: none; }
+  .wc-tasks li span:first-child { opacity: 0.55; min-width: 16px; }
+  .wc-actions { display: flex; gap: 8px; margin-top: 14px; }
+
+  .sum {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 4px 4px 16px;
+  }
+  .sum h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+  .sum p { margin: 2px 0 0; color: var(--soft); font-size: 14px; font-weight: 600; }
+  .status {
+    background: rgba(255, 152, 0, 0.16); color: var(--orange);
+    border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 700;
+    display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: blink 1.6s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: 0.3; } }
+  .after-list { display: grid; gap: 10px; margin-top: 6px; }
+
+  .empty { color: var(--soft); font-size: 14px; text-align: center; padding: 22px 10px 8px; font-weight: 600; }
+
+  /* ---------- Segmented toggle ---------- */
+  .seg {
+    display: flex; gap: 4px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 999px; padding: 4px;
+  }
+  .seg button {
+    flex: 1; background: none; border: none; border-radius: 999px;
+    padding: 9px 14px; font-size: 13.5px; font-weight: 700; color: var(--soft);
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .seg button.on { background: var(--orange); color: var(--dark); }
+  .seg.small { display: inline-flex; }
+  .seg.small button { flex: none; padding: 6px 12px; font-size: 12.5px; }
+
+  /* ---------- Calendar ---------- */
+  .cal-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .round-btn {
+    width: 42px; height: 42px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--line);
+    display: grid; place-items: center; padding: 0;
+    transition: transform 0.12s ease;
+  }
+  .round-btn:active { transform: scale(0.9); }
+  .cal-label { font-size: 17px; font-weight: 700; text-transform: capitalize; }
+  .cal-box { background: var(--surface); border: 1px solid var(--line); border-radius: 26px; padding: 14px; margin-top: 14px; }
+  .cal-grid-month, .cal-grid-week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .cal-weekday { text-align: center; font-size: 12px; font-weight: 700; color: var(--soft); padding-bottom: 6px; }
+  .cal-day {
+    aspect-ratio: 1;
+    background: var(--surface-2);
+    border: 1.5px solid transparent;
+    color: var(--ink);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600; padding: 0;
+    transition: transform 0.12s ease;
+  }
+  .cal-day:active { transform: scale(0.92); }
+  .cal-day-outside { opacity: 0.3; }
+  .cal-day-today { border-color: var(--orange); }
+  .cal-day-active { background: var(--lime); color: var(--dark); font-weight: 800; }
+  .cal-day-selected { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--orange); }
+  .cal-day-week { aspect-ratio: auto; height: 74px; flex-direction: column; gap: 4px; border-radius: 18px; }
+  .cal-day-wd { font-size: 11.5px; opacity: 0.7; font-weight: 700; }
+  .cal-day-num { font-size: 18px; font-weight: 800; }
+
+  /* ---------- Profile ---------- */
+  .who {
+    position: relative;
+    background: linear-gradient(160deg, #221F1A, #12110F);
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    padding: 22px 20px 12px;
+  }
+  .who-name { font-size: 26px; font-weight: 800; letter-spacing: -0.02em; padding-right: 52px; }
+  .who-rows { margin-top: 12px; }
+  .who-row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); font-size: 14.5px; }
+  .who-row span:first-child { color: var(--soft); font-weight: 600; }
+  .who-row span:last-child { font-weight: 700; text-align: right; }
+  .edit-btn {
+    position: absolute; top: 18px; right: 18px;
+    width: 40px; height: 40px; border-radius: 50%;
+    background: var(--surface); border: 1px solid var(--line);
+    display: grid; place-items: center; padding: 0;
+  }
+  .edit-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  .activity {
+    background: linear-gradient(170deg, #1B1A17, #121110);
+    border: 1px solid var(--line);
+    border-radius: 28px; padding: 18px 16px 20px;
+  }
+  .arc { width: 100%; max-width: 280px; display: block; margin: 0 auto; }
+  .arc .draw { animation: draw 1.1s cubic-bezier(0.22, 0.8, 0.3, 1) both; }
+  @keyframes draw { from { stroke-dashoffset: var(--len); } to { stroke-dashoffset: 0; } }
+  .arc-note { text-align: center; color: var(--soft); font-size: 12.5px; margin: 4px 0 18px; font-weight: 600; }
+  .legend { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .legend b { display: block; font-size: 17px; font-weight: 800; }
+  .legend span { font-size: 12px; color: var(--soft); font-weight: 600; }
+  .legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
+  .chart-box {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 28px; padding: 16px 12px 8px; margin-top: 14px;
+  }
+  .chart-head { display: flex; align-items: center; justify-content: space-between; padding: 0 6px 4px; }
+  .chart-head h3 { font-size: 17px; font-weight: 700; }
+  .chart-svg { width: 100%; height: auto; display: block; }
+  .chart-svg text { font-family: var(--font); }
+
+  /* ---------- Bottom nav ---------- */
   .bottomnav {
     position: fixed;
-    left: 0; right: 0; bottom: 0;
+    left: 50%; transform: translateX(-50%);
+    bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    width: calc(100% - 32px); max-width: 448px;
     display: flex;
-    background: var(--card);
-    border-top: 1px solid var(--line);
-    padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: rgba(24, 23, 21, 0.92);
+    -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+    border: 1px solid var(--line);
+    border-radius: 30px;
+    padding: 8px;
     z-index: 10;
   }
   .navbtn {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
-    background: none;
-    border: none;
-    color: var(--ink-soft);
-    font-family: 'IBM Plex Sans', sans-serif;
-    font-size: 11.5px;
-    font-weight: 500;
-    padding: 6px 4px;
-    cursor: pointer;
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: none; border: none; border-radius: 22px;
+    color: var(--soft);
+    font-size: 12px; font-weight: 700; padding: 8px 4px;
+    transition: color 0.2s ease, background 0.2s ease;
   }
-  .navbtn .nav-icon { font-size: 19px; line-height: 1; }
-  .navbtn.active { color: var(--pool-deep); font-weight: 600; }
+  .navbtn svg.i { width: 22px; height: 22px; }
+  .navbtn.active { color: var(--orange); background: rgba(255, 152, 0, 0.12); }
 
+  /* ---------- Modal ---------- */
   .modal-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex; align-items: flex-end; justify-content: center;
     z-index: 50;
   }
   .modal-card {
-    background: var(--card);
+    background: #181715;
     border: 1px solid var(--line);
-    border-radius: 14px;
-    padding: 20px;
-    width: 100%;
-    max-width: 420px;
-    max-height: 85vh;
-    overflow-y: auto;
+    border-radius: 28px 28px 0 0;
+    padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
+    width: 100%; max-width: 480px; max-height: 90vh; overflow-y: auto;
+    animation: sheet 0.28s cubic-bezier(0.22, 0.8, 0.3, 1) both;
   }
+  .modal-card h2 { font-size: 20px; font-weight: 800; margin-bottom: 16px; }
+  @keyframes sheet { from { transform: translateY(40px); opacity: 0; } to { transform: none; opacity: 1; } }
 
-  .train-hero {
-    position: relative;
-    overflow: hidden;
-    border-radius: 16px;
-    padding: 30px 20px 46px;
-    margin-bottom: 16px;
-    background: linear-gradient(120deg, #0E2A40, var(--pool-deep), #0E2A40);
-    background-size: 200% 200%;
-    animation: gradientShift 7s ease-in-out infinite;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
-  .train-hero-btn {
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    color: #ffffff;
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 12px 22px;
-    border-radius: 999px;
-    width: auto;
-    position: relative;
-    z-index: 2;
-    backdrop-filter: blur(2px);
-  }
-  .train-hero-btn:hover { background: rgba(255, 255, 255, 0.24); }
-  .wave-wrap {
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    height: 38px;
-    overflow: hidden;
-  }
-  .wave-svg {
-    position: absolute;
-    bottom: 0; left: 0;
-    width: 200%;
-    height: 100%;
-    animation: waveMove 9s linear infinite;
-  }
-  .wave-svg-2 {
-    animation-duration: 14s;
-    animation-direction: reverse;
-  }
-  @keyframes waveMove {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-  @keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  .cal-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .cal-nav-btn {
-    background: var(--card);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
-    font-size: 16px;
-    padding: 0;
-    transition: background 0.15s ease, transform 0.15s ease;
-  }
-  .cal-nav-btn:active { transform: scale(0.9); background: var(--bg); }
-  .cal-label {
-    font-family: 'Space Grotesk', sans-serif;
-    font-weight: 600;
-    font-size: 15px;
-    text-transform: capitalize;
-  }
-  .view-toggle {
-    display: flex;
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 3px;
-    margin-bottom: 16px;
-  }
-  .view-toggle-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    color: var(--ink-soft);
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 7px;
-    border-radius: 8px;
-    transition: background 0.2s ease, color 0.2s ease;
-  }
-  .view-toggle-btn.active {
-    background: var(--pool-deep);
-    color: white;
-    box-shadow: 0 2px 6px rgba(44, 127, 193, 0.35);
-  }
-  .cal-grid-month {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 6px;
-  }
-  .cal-weekday {
-    text-align: center;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.02em;
-    color: var(--ink-soft);
-    padding-bottom: 6px;
-  }
-  .cal-day {
-    background: var(--card);
-    border: 1px solid var(--line);
-    color: var(--ink);
-    border-radius: 12px;
-    aspect-ratio: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13.5px;
-    font-weight: 500;
-    padding: 0;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.2s ease, border-color 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.12);
-  }
-  .cal-day:active { transform: scale(0.93); }
-  .cal-day-outside { opacity: 0.28; box-shadow: none; }
-  .cal-day-today {
-    border-color: var(--pool);
-    box-shadow: 0 0 0 3px rgba(61, 155, 224, 0.22);
-  }
-  .cal-day-active {
-    background: linear-gradient(145deg, #59CB93, var(--success));
-    border-color: transparent;
-    color: white;
-    font-weight: 700;
-    box-shadow: 0 3px 10px rgba(79, 191, 131, 0.35);
-  }
-  .cal-day-selected {
-    box-shadow: 0 0 0 3px rgba(232, 169, 74, 0.45);
-    border-color: var(--amber);
-  }
-  .cal-grid-week {
-    display: grid;
-    grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
-  }
-  .cal-day-week {
-    aspect-ratio: auto;
-    height: 68px;
-    flex-direction: column;
-    gap: 5px;
-    border-radius: 14px;
-  }
-  .cal-day-wd { font-size: 10.5px; color: inherit; opacity: 0.75; font-weight: 600; letter-spacing: 0.02em; }
-  .cal-day-num { font-size: 16px; font-weight: 700; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <div id="regScreen" class="card hidden">
-    <label for="regFirst">Имя</label>
-    <input type="text" id="regFirst" placeholder="Имя">
-    <label for="regLast">Фамилия</label>
-    <input type="text" id="regLast" placeholder="Фамилия">
-    <label for="regBirthDate">Дата рождения</label>
-    <input type="date" id="regBirthDate">
-    <label for="regLevel">Уровень плавания</label>
-    <select id="regLevel">
-      <option value="beginner">Новичок</option>
-      <option value="intermediate">Любитель</option>
-      <option value="advanced">Продвинутый</option>
-    </select>
-    <label for="regStroke">Каким стилем хочешь плавать больше всего</label>
-    <select id="regStroke">
-      <option value="freestyle">Вольный стиль</option>
-      <option value="backstroke">На спине</option>
-      <option value="breaststroke">Брасс</option>
-      <option value="butterfly">Баттерфляй</option>
-      <option value="medley">Комплексное плавание</option>
-    </select>
-    <button class="btn-primary" onclick="saveProfile()">Сохранить и начать</button>
+
+  <!-- ===== Регистрация / профиль ===== -->
+  <div id="regScreen" class="hidden">
+    <h1>Профиль пловца</h1>
+    <div class="panel">
+      <p class="lead">По уровню и стилю мы подбираем задания в тренировке.</p>
+      <label for="regFirst">Имя</label>
+      <input type="text" id="regFirst" placeholder="Имя" autocomplete="given-name">
+      <label for="regLast">Фамилия</label>
+      <input type="text" id="regLast" placeholder="Фамилия" autocomplete="family-name">
+      <label for="regBirthDate">Дата рождения</label>
+      <input type="date" id="regBirthDate">
+      <label for="regLevel">Уровень плавания</label>
+      <select id="regLevel">
+        <option value="beginner">Новичок</option>
+        <option value="intermediate">Любитель</option>
+        <option value="advanced">Продвинутый</option>
+      </select>
+      <label for="regStroke">Каким стилем хочешь плавать больше всего</label>
+      <select id="regStroke">
+        <option value="freestyle">Вольный стиль</option>
+        <option value="backstroke">На спине</option>
+        <option value="breaststroke">Брасс</option>
+        <option value="butterfly">Баттерфляй</option>
+        <option value="medley">Комплексное плавание</option>
+      </select>
+      <div id="regError" class="form-error hidden">Укажите имя и дату рождения.</div>
+      <div class="btn-row">
+        <button class="btn btn-ghost hidden" id="regCancel" onclick="cancelRegistration()">Отмена</button>
+        <button class="btn" onclick="saveProfile()">Сохранить и начать</button>
+      </div>
+    </div>
   </div>
 
   <div id="mainScreen" class="hidden">
 
+    <!-- ===== Тренировка ===== -->
     <div id="trainTab" class="tabcontent">
-      <div class="train-hero">
-        <button class="train-hero-btn" onclick="openManualWorkout()">+ Добавить свою тренировку</button>
-        <div class="wave-wrap">
-          <svg class="wave-svg" viewBox="0 0 1200 60" preserveAspectRatio="none">
-            <path d="M0,30 C150,60 350,0 600,30 C850,60 1050,0 1200,30 L1200,60 L0,60 Z" fill="rgba(255,255,255,0.18)"/>
-          </svg>
-          <svg class="wave-svg wave-svg-2" viewBox="0 0 1200 60" preserveAspectRatio="none">
-            <path d="M0,30 C150,0 350,60 600,30 C850,0 1050,60 1200,30 L1200,60 L0,60 Z" fill="rgba(255,255,255,0.28)"/>
-          </svg>
+      <div class="top">
+        <div class="avatar" id="avatar"></div>
+        <div>
+          <span class="hello-s" id="helloName"></span>
+          <span class="hello-b">Соберём тренировку?</span>
         </div>
       </div>
-      <div id="generatorCard" class="card">
-        <label for="type">Тип нагрузки</label>
-        <select id="type">
-          <option value="aerobic">Аэробная</option>
-          <option value="anaerobic">Анаэробная</option>
-          <option value="sprint">Спринтерская (триатлон)</option>
-          <option value="distance">Стайерская</option>
-        </select>
-        <button class="btn-primary" onclick="generate()">Сгенерировать тренировку</button>
+
+      <div class="hero">
+        <div>
+          <div class="hero-label">Эта неделя</div>
+          <div class="hero-num" id="heroVol"></div>
+          <div class="hero-meta" id="heroMeta"></div>
+          <button class="own-btn" onclick="openManualWorkout()">Своя тренировка
+            <span class="plus"><svg class="i" viewBox="0 0 24 24" style="width:14px;height:14px"><path d="M12 5v14M5 12h14"/></svg></span>
+          </button>
+        </div>
+        <div class="ring-small" id="heroRing"></div>
       </div>
-      <div id="workoutCard" class="card hidden">
-        <div id="workoutStatus" class="workout-status hidden">Тренировка в процессе</div>
-        <div id="taskList"></div>
-        <div id="workoutActions" style="margin-top: 6px;"></div>
+
+      <div id="genBox">
+        <h2 class="section-title" style="margin-top:0">Тип нагрузки</h2>
+        <div class="pills" id="typePills"></div>
+        <div style="margin-top:14px">
+          <button class="btn" onclick="generate()">Сгенерировать тренировку</button>
+        </div>
       </div>
+
+      <div id="workoutBox" class="hidden"></div>
     </div>
 
+    <!-- ===== Календарь ===== -->
+    <div id="calendarTab" class="tabcontent hidden">
+      <h1>Календарь</h1>
+      <div class="cal-toolbar">
+        <button class="round-btn" onclick="calPrev()" aria-label="Назад"><svg class="i" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <div class="cal-label" id="calendarLabel"></div>
+        <button class="round-btn" onclick="calNext()" aria-label="Вперёд"><svg class="i" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="seg" id="calSeg">
+        <button data-view="month" class="on" onclick="setCalendarView('month')">Месяц</button>
+        <button data-view="week" onclick="setCalendarView('week')">Неделя</button>
+      </div>
+      <div class="cal-box"><div id="calendarGrid"></div></div>
+      <div id="calendarDetails"></div>
+    </div>
+
+    <!-- ===== Профиль ===== -->
     <div id="profileTab" class="tabcontent hidden">
-      <div class="hero-card">
-        <button class="pencil-btn" onclick="showRegistration(true)" aria-label="Изменить">✎</button>
-        <div class="hero-name" id="heroName"></div>
-        <div class="hero-rows">
-          <div class="hero-row"><span>Способ плавания</span><span id="pvStroke"></span></div>
-          <div class="hero-row"><span>Уровень плавания</span><span id="pvLevel"></span></div>
-          <div class="hero-row"><span>Дата рождения</span><span id="pvBirth"></span></div>
+      <h1>Профиль</h1>
+      <div class="who">
+        <button class="edit-btn" onclick="showRegistration(true)" aria-label="Изменить профиль">
+          <svg class="i" viewBox="0 0 24 24" style="width:17px;height:17px"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>
+        </button>
+        <div class="who-name" id="heroName"></div>
+        <div class="who-rows">
+          <div class="who-row"><span>Способ плавания</span><span id="pvStroke"></span></div>
+          <div class="who-row"><span>Уровень плавания</span><span id="pvLevel"></span></div>
+          <div class="who-row"><span>Дата рождения</span><span id="pvBirth"></span></div>
         </div>
       </div>
 
-      <div class="card" id="statsCard">
-        <div class="stat-row">
-          <div class="stat"><div class="stat-num" id="statVolume">0 м</div><div class="stat-label">всего проплыто</div></div>
+      <h2 class="section-title">Активность</h2>
+      <div class="activity">
+        <div id="arcBox"></div>
+        <div class="arc-note">Дуга показывает долю от вашей лучшей недели из последних восьми</div>
+        <div class="legend">
+          <div><b id="statVolume">0 м</b><span><i style="background:var(--lime)"></i>всего проплыто</span></div>
+          <div><b id="statMonth">0 м</b><span><i style="background:var(--orange)"></i>в этом месяце</span></div>
+          <div><b id="statWorkouts">0</b><span><i style="background:#43E0CB"></i>тренировок</span></div>
         </div>
-        <div class="stat-row">
-          <div class="stat"><div class="stat-num" id="statWeek">0 м</div><div class="stat-label">на этой неделе</div></div>
-          <div class="stat"><div class="stat-num" id="statMonth">0 м</div><div class="stat-label">в этом месяце</div></div>
-        </div>
-        <div class="hero-row"><span>Тренировок завершено</span><span id="statWorkouts">0</span></div>
-        <button class="edit-link" id="chartToggleBtn" onclick="toggleChart()" style="margin-top: 10px;">Подробнее →</button>
       </div>
-      <div id="chartCard" class="card hidden">
-        <div class="section-title" style="margin-top: 0;">Метраж по неделям</div>
+
+      <div class="chart-box">
+        <div class="chart-head">
+          <h3>Метраж</h3>
+          <div class="seg small" id="chartSeg">
+            <button data-mode="weeks" class="on" onclick="setChartMode('weeks')">Недели</button>
+            <button data-mode="months" onclick="setChartMode('months')">Месяцы</button>
+          </div>
+        </div>
         <div id="volumeChart"></div>
       </div>
-    </div>
-
-    <div id="calendarTab" class="tabcontent hidden">
-      <div class="cal-toolbar">
-        <button class="cal-nav-btn" onclick="calPrev()">‹</button>
-        <div class="cal-label" id="calendarLabel"></div>
-        <button class="cal-nav-btn" onclick="calNext()">›</button>
-      </div>
-      <div class="view-toggle">
-        <button class="view-toggle-btn active" data-view="month" onclick="setCalendarView('month')">Месяц</button>
-        <button class="view-toggle-btn" data-view="week" onclick="setCalendarView('week')">Неделя</button>
-      </div>
-      <div id="calendarGrid" class="cal-grid"></div>
-
-      <div id="calendarDetails"></div>
     </div>
 
   </div>
 </div>
 
+<!-- ===== Своя тренировка ===== -->
 <div id="manualWorkoutOverlay" class="modal-overlay hidden">
   <div class="modal-card">
+    <h2 id="mwTitle">Своя тренировка</h2>
     <label for="mwDate">Дата</label>
     <input type="date" id="mwDate">
     <label for="mwType">Тип нагрузки</label>
@@ -633,21 +537,30 @@
     <label for="mwTasks">Задания (каждое с новой строки)</label>
     <textarea id="mwTasks" rows="5" placeholder="10×100м вольный стиль, отдых 15 сек"></textarea>
     <label for="mwDuration">Длительность, мин (необязательно)</label>
-    <input type="number" id="mwDuration" placeholder="Например: 45">
-    <div style="display: flex; gap: 8px;">
-      <button class="btn-primary" style="flex: 1;" onclick="saveManualWorkout()">Сохранить</button>
-      <button class="swap-btn" style="flex: 1;" onclick="closeManualWorkout()">Отмена</button>
+    <input type="number" id="mwDuration" inputmode="numeric" placeholder="Например: 45">
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeManualWorkout()">Отмена</button>
+      <button class="btn" onclick="saveManualWorkout()">Сохранить</button>
     </div>
   </div>
 </div>
 
 <nav class="bottomnav hidden" id="bottomNav">
-  <button class="navbtn active" data-tab="trainTab"><span class="nav-icon">🏊</span>Тренировка</button>
-  <button class="navbtn" data-tab="calendarTab"><span class="nav-icon">📅</span>Календарь</button>
-  <button class="navbtn" data-tab="profileTab"><span class="nav-icon">👤</span>Профиль</button>
+  <button class="navbtn active" data-tab="trainTab">
+    <svg class="i" viewBox="0 0 24 24"><path d="M2 8c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><path d="M2 14c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><circle cx="17" cy="4" r="1.6"/></svg>Тренировка
+  </button>
+  <button class="navbtn" data-tab="calendarTab">
+    <svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>Календарь
+  </button>
+  <button class="navbtn" data-tab="profileTab">
+    <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg>Профиль
+  </button>
 </nav>
 
 <script>
+/* ============================================================
+   Данные: пул заданий (без изменений)
+   ============================================================ */
 const POOL = {
   aerobic: {
     beginner: [
@@ -725,9 +638,30 @@ const POOL = {
 const LEVEL_LABEL = { beginner: 'Новичок', intermediate: 'Любитель', advanced: 'Продвинутый' };
 const STROKE_LABEL = { freestyle: 'вольный стиль', backstroke: 'на спине', breaststroke: 'брасс', butterfly: 'баттерфляй', medley: 'комплексное плавание' };
 const TYPE_LABEL = { aerobic: 'Аэробная', anaerobic: 'Анаэробная', sprint: 'Спринт', distance: 'Стайер' };
+const TYPE_ORDER = ['aerobic', 'anaerobic', 'sprint', 'distance'];
+const TYPE_ICON = {
+  aerobic: '<path d="M12 20s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9z"/>',
+  anaerobic: '<path d="M13 2 4 14h7l-1 8 9-12h-7z"/>',
+  sprint: '<circle cx="12" cy="13.5" r="7.5"/><path d="M12 9.5v4l2.5 2M9.5 2.5h5"/>',
+  distance: '<path d="M2 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M2 15c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/>'
+};
+const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+const MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
+/* ============================================================
+   Состояние и хранилище (ключи прежние — данные сохраняются)
+   ============================================================ */
 let profile = null;
 let workout = { state: 'idle', tasks: [], startedAt: null };
+let historyCache = [];
+let selectedType = 'aerobic';
+let calendarView = 'month';
+let calendarDate = new Date();
+let selectedDate = null;
+let editingHistoryId = null;
+let chartMode = 'weeks';
+let chartIdx = null;
 
 const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
 const cloud = (tg && tg.CloudStorage) ? tg.CloudStorage : null;
@@ -742,9 +676,7 @@ function csSet(key, value) {
     cloud.setItem(key, value, () => resolve());
   });
 }
-
-// Загружает значение: из Telegram CloudStorage, если открыто внутри Telegram,
-// иначе из localStorage браузера (для тестирования вне Telegram).
+// Внутри Telegram — CloudStorage, снаружи — localStorage (для проверки в браузере)
 async function loadState(key, fallback) {
   try {
     if (cloud) {
@@ -762,48 +694,56 @@ async function saveState(key, value) {
     localStorage.setItem(key, raw);
   } catch (e) {}
 }
+async function saveHistory(list) {
+  historyCache = list;
+  await saveState('swimdemo_history', list);
+}
 
-document.querySelectorAll('.navbtn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.navbtn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tabcontent').forEach(p => p.classList.add('hidden'));
-    btn.classList.add('active');
-    document.getElementById(btn.dataset.tab).classList.remove('hidden');
-    if (btn.dataset.tab === 'calendarTab') {
-      renderCalendar();
-    }
-    if (btn.dataset.tab === 'profileTab') {
-      renderProfileStats();
-    }
-  });
-});
-
-function pickTasks(type, level, count) {
-  const source = POOL[type][level];
-  const shuffled = [...source].sort(() => Math.random() - 0.5);
-  const picked = [];
-  for (let i = 0; i < count; i++) {
-    picked.push(shuffled[i % shuffled.length]);
+/* ============================================================
+   Утилиты
+   ============================================================ */
+const $ = (id) => document.getElementById(id);
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+function toISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
+function parseISO(iso) { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d); }
+function startOfWeek(date) {
+  const d = new Date(date);
+  const day = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+function monthMatrix(date) {
+  const year = date.getFullYear(), month = date.getMonth();
+  const startOffset = (new Date(year, month, 1).getDay() + 6) % 7;
+  const gridStart = new Date(year, month, 1 - startOffset);
+  const days = [];
+  for (let i = 0; i < 42; i++) {
+    const d = new Date(gridStart);
+    d.setDate(gridStart.getDate() + i);
+    days.push(d);
   }
-  return picked;
+  return days;
 }
-
-// Подставляет предпочитаемый стиль пловца вместо дефолтного "вольный стиль" в тексте задания
-function personalizeText(text) {
-  if (!profile || profile.stroke === 'freestyle') return text;
-  const replacement = STROKE_LABEL[profile.stroke];
-  return text.replace(/вольный стиль/gi, replacement);
+function formatBirthDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}.${m}.${y}`;
 }
-
-function updateProfileSummary() {
-  if (!profile) return;
-  document.getElementById('heroName').textContent = `${profile.firstName} ${profile.lastName}`.trim();
-  document.getElementById('pvBirth').textContent = formatBirthDate(profile.birthDate);
-  document.getElementById('pvStroke').textContent = STROKE_LABEL[profile.stroke] || '—';
-  document.getElementById('pvLevel').textContent = LEVEL_LABEL[profile.level] || '—';
+function plural(n, one, few, many) {
+  const a = Math.abs(n) % 100, b = a % 10;
+  if (a > 10 && a < 20) return many;
+  if (b > 1 && b < 5) return few;
+  if (b === 1) return one;
+  return many;
 }
+function clamp(v, lo, hi) { return Math.min(hi, Math.max(lo, v)); }
+function svgIcon(path) { return `<svg class="i" viewBox="0 0 24 24">${path}</svg>`; }
 
-// Извлекает метраж из текста задания: считает "N×Mм" как N*M, отдельные "Nм" — как есть
+// «N×Mм» считается как N*M, отдельные «Nм» — как есть
 function parseTaskMeters(text) {
   let total = 0;
   const multRe = /(\d+)\s*×\s*(\d+)\s*м(?![а-яё])/gi;
@@ -819,125 +759,236 @@ function parseTaskMeters(text) {
   }
   return total;
 }
-
+function tasksMeters(tasks) { return tasks.reduce((s, t) => s + parseTaskMeters(typeof t === 'string' ? t : t.text), 0); }
+function volumeSum(list) { return list.reduce((sum, h) => sum + tasksMeters(h.tasks), 0); }
+function kmText(m) {
+  return (m / 1000).toFixed(1).replace(/\.0$/, '').replace('.', ',');
+}
 function formatVolume(m) {
-  if (m >= 1000) return `${(m / 1000).toFixed(1).replace(/\.0$/, '')} км`;
+  if (m >= 1000) return `${kmText(m)} км`;
   return `${m} м`;
 }
-
-function volumeSum(history) {
-  return history.reduce((sum, h) => sum + h.tasks.reduce((s, t) => s + parseTaskMeters(t), 0), 0);
+function cutBadge(m) {
+  if (m <= 0) return '';
+  return m >= 1000
+    ? `<div class="cut"><b>${kmText(m)}</b><small>км</small></div>`
+    : `<div class="cut"><b>${m}</b><small>м</small></div>`;
 }
 
-async function renderProfileStats() {
-  const history = await loadState('swimdemo_history', []);
+// Подставляет предпочитаемый стиль вместо «вольный стиль» в тексте задания
+function personalizeText(text) {
+  if (!profile || profile.stroke === 'freestyle') return text;
+  return text.replace(/вольный стиль/gi, STROKE_LABEL[profile.stroke]);
+}
+function pickTasks(type, level, count) {
+  const shuffled = [...POOL[type][level]].sort(() => Math.random() - 0.5);
+  const picked = [];
+  for (let i = 0; i < count; i++) picked.push(shuffled[i % shuffled.length]);
+  return picked;
+}
+
+/* ============================================================
+   Статистика и графики
+   ============================================================ */
+function buckets(mode) {
   const now = new Date(); now.setHours(0, 0, 0, 0);
-  const weekStart = startOfWeek(now);
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-  const allVol = volumeSum(history);
-  const weekVol = volumeSum(history.filter(h => new Date(h.date) >= weekStart));
-  const monthVol = volumeSum(history.filter(h => new Date(h.date) >= monthStart));
-
-  document.getElementById('statVolume').textContent = formatVolume(allVol);
-  document.getElementById('statWeek').textContent = formatVolume(weekVol);
-  document.getElementById('statMonth').textContent = formatVolume(monthVol);
-  document.getElementById('statWorkouts').textContent = history.length;
-
-  renderVolumeChart(history);
-}
-
-function toggleChart() {
-  const card = document.getElementById('chartCard');
-  card.classList.toggle('hidden');
-  document.getElementById('chartToggleBtn').textContent = card.classList.contains('hidden') ? 'Подробнее →' : 'Скрыть';
-}
-
-function buildWeeklyBuckets(history, weeks) {
-  const now = new Date(); now.setHours(0, 0, 0, 0);
-  const currentWeekStart = startOfWeek(now);
-  const buckets = [];
-  for (let i = weeks - 1; i >= 0; i--) {
-    const s = new Date(currentWeekStart); s.setDate(currentWeekStart.getDate() - 7 * i);
-    const e = new Date(s); e.setDate(s.getDate() + 7);
-    const vol = volumeSum(history.filter(h => { const d = new Date(h.date); return d >= s && d < e; }));
-    buckets.push({ start: s, volume: vol });
+  const out = [];
+  const inRange = (s, e) => volumeSum(historyCache.filter(h => { const d = parseISO(h.date); return d >= s && d < e; }));
+  if (mode === 'weeks') {
+    const cw = startOfWeek(now);
+    for (let i = 7; i >= 0; i--) {
+      const s = new Date(cw); s.setDate(cw.getDate() - 7 * i);
+      const e = new Date(s); e.setDate(s.getDate() + 7);
+      out.push({ label: `${pad2(s.getDate())}.${pad2(s.getMonth() + 1)}`, volume: inRange(s, e) });
+    }
+  } else {
+    for (let i = 5; i >= 0; i--) {
+      const s = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const e = new Date(s.getFullYear(), s.getMonth() + 1, 1);
+      out.push({ label: MONTH_SHORT[s.getMonth()], volume: inRange(s, e) });
+    }
   }
-  return buckets;
+  return out;
+}
+function weekSnapshot() {
+  const week = buckets('weeks');
+  const cur = week[week.length - 1].volume;
+  const best = Math.max(1, ...week.map(b => b.volume));
+  const weekStart = startOfWeek(new Date());
+  const count = historyCache.filter(h => parseISO(h.date) >= weekStart).length;
+  return { vol: cur, pct: cur > 0 ? Math.round((cur / best) * 100) : 0, count };
 }
 
-function renderVolumeChart(history) {
-  const buckets = buildWeeklyBuckets(history, 8);
-  const max = Math.max(1, ...buckets.map(b => b.volume));
-  const w = 320, h = 130, chartH = h - 24;
-  const slot = w / buckets.length;
-  const barW = slot - 8;
-  const bars = buckets.map((b, i) => {
-    const barH = Math.round((b.volume / max) * chartH);
-    const x = i * slot + 4;
-    const y = h - barH - 16;
-    const label = b.volume >= 1000 ? (b.volume / 1000).toFixed(1) + 'к' : (b.volume || '');
+function polar(cx, cy, r, deg) {
+  const a = deg * Math.PI / 180;
+  return [cx + r * Math.cos(a), cy + r * Math.sin(a)];
+}
+function arcSvg(pct, centerBig, centerSmall) {
+  const cx = 100, cy = 100, r = 72, start = 135, sweep = 270;
+  const p = clamp(pct / 100, 0, 1);
+  let ticks = '';
+  for (let a = start + sweep * p; a <= start + sweep + 0.1; a += 6) {
+    const [x1, y1] = polar(cx, cy, 64, a);
+    const [x2, y2] = polar(cx, cy, 80, a);
+    ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,0.14)" stroke-width="2" stroke-linecap="round"/>`;
+  }
+  let arc = '';
+  if (p > 0) {
+    const [sx, sy] = polar(cx, cy, r, start);
+    const [ex, ey] = polar(cx, cy, r, start + sweep * p);
+    const len = r * (sweep * p) * Math.PI / 180;
+    arc = `<path class="draw" d="M${sx.toFixed(1)},${sy.toFixed(1)} A${r},${r} 0 ${sweep * p > 180 ? 1 : 0} 1 ${ex.toFixed(1)},${ey.toFixed(1)}" fill="none" stroke="url(#arcGrad)" stroke-width="16" stroke-linecap="round" style="--len:${len.toFixed(1)};stroke-dasharray:${len.toFixed(1)}"/>`;
+  }
+  return `<svg class="arc" viewBox="0 0 200 200" role="img" aria-label="Неделя: ${pct}% от лучшей">
+    <defs><linearGradient id="arcGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF9800"/><stop offset="1" stop-color="#D4FF00"/></linearGradient></defs>
+    ${ticks}${arc}
+    <text x="100" y="104" text-anchor="middle" font-size="30" font-weight="800" fill="#F6F3EC" style="font-family:var(--font)">${centerBig}</text>
+    <text x="100" y="126" text-anchor="middle" font-size="12" font-weight="600" fill="#8F8A80" style="font-family:var(--font)">${centerSmall}</text>
+  </svg>`;
+}
+function ringSmallSvg(pct) {
+  const r = 34, c = 2 * Math.PI * r, dash = c * clamp(pct / 100, 0, 1);
+  return `<svg viewBox="0 0 84 84">
+    <circle cx="42" cy="42" r="${r}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
+    <circle cx="42" cy="42" r="${r}" fill="none" stroke="#FF9800" stroke-width="6" stroke-linecap="round"
+      stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 42 42)"/>
+  </svg><span>${pct}%</span>`;
+}
+
+function renderChart() {
+  const b = buckets(chartMode);
+  const n = b.length;
+  if (chartIdx == null || chartIdx >= n) chartIdx = n - 1;
+  const W = 340, H = 190, pl = 24, pr = 24, pt = 36, pb = 30;
+  const cw = W - pl - pr, ch = H - pt - pb;
+  const max = Math.max(1, ...b.map(x => x.volume));
+  const step = cw / (n - 1);
+  const pts = b.map((x, i) => [pl + i * step, pt + ch - (x.volume / max) * ch]);
+
+  let d = `M${pts[0][0]},${pts[0][1]}`;
+  for (let i = 0; i < n - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = clamp(p1[1] + (p2[1] - p0[1]) / 6, pt, pt + ch);
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = clamp(p2[1] - (p3[1] - p1[1]) / 6, pt, pt + ch);
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+
+  let grid = '';
+  for (let k = 0; k <= 3; k++) {
+    const y = pt + (ch * k) / 3;
+    grid += `<line x1="${pl - 10}" y1="${y}" x2="${W - pr + 10}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3 5"/>`;
+  }
+
+  const [hx, hy] = pts[chartIdx];
+  const hv = b[chartIdx].volume;
+  const column = `<rect x="${(hx - step / 2 + 3).toFixed(1)}" y="${pt - 12}" width="${(step - 6).toFixed(1)}" height="${ch + 12}" rx="10" fill="rgba(212,255,0,0.12)"/>`;
+  const dot = `<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="6" fill="#D4FF00" stroke="#161513" stroke-width="3"/>`;
+  const valTxt = `<text x="${hx.toFixed(1)}" y="${(hy - 14).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="#F6F3EC">${hv > 0 ? formatVolume(hv) : '0'}</text>`;
+
+  const labels = b.map((x, i) =>
+    `<text x="${pts[i][0].toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10.5" font-weight="${i === chartIdx ? 800 : 600}" fill="${i === chartIdx ? '#F6F3EC' : '#8F8A80'}">${x.label}</text>`).join('');
+  const hits = b.map((x, i) =>
+    `<rect x="${(pts[i][0] - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer" onclick="setChartIdx(${i})"/>`).join('');
+
+  const noData = b.every(x => x.volume === 0);
+  $('volumeChart').innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="График метража">
+      <defs><linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF9800"/><stop offset="1" stop-color="#D4FF00"/></linearGradient></defs>
+      ${grid}${column}
+      <path d="${d}" fill="none" stroke="url(#lineGrad)" stroke-width="3" stroke-linecap="round"/>
+      ${dot}${valTxt}${labels}${hits}
+    </svg>
+    ${noData ? '<div class="empty" style="padding-top:0">Завершите первую тренировку — здесь появится график.</div>' : ''}`;
+}
+function setChartIdx(i) { chartIdx = i; renderChart(); }
+function setChartMode(m) {
+  chartMode = m;
+  chartIdx = null;
+  document.querySelectorAll('#chartSeg button').forEach(b => b.classList.toggle('on', b.dataset.mode === m));
+  renderChart();
+}
+
+/* ============================================================
+   Рендер: тренировка
+   ============================================================ */
+function renderTypePills() {
+  $('typePills').innerHTML = TYPE_ORDER.map(t => `
+    <button class="pill ${t === selectedType ? 'on' : ''}" onclick="selectType('${t}')">
+      <span class="ico">${svgIcon(TYPE_ICON[t])}</span>${TYPE_LABEL[t]}
+    </button>`).join('');
+}
+function selectType(t) { selectedType = t; renderTypePills(); }
+
+function renderHome() {
+  if (!profile) return;
+  $('helloName').textContent = `Привет, ${profile.firstName}`;
+  $('avatar').textContent = (profile.firstName[0] || '•').toUpperCase();
+  const snap = weekSnapshot();
+  const big = snap.vol >= 1000 ? `${kmText(snap.vol)}<small>км</small>` : `${snap.vol}<small>м</small>`;
+  $('heroVol').innerHTML = big;
+  $('heroMeta').textContent = snap.count
+    ? `${snap.count} ${plural(snap.count, 'тренировка', 'тренировки', 'тренировок')}`
+    : 'Пока без тренировок';
+  $('heroRing').innerHTML = ringSmallSvg(snap.pct);
+}
+
+function renderWorkout() {
+  const gen = $('genBox');
+  const box = $('workoutBox');
+  if (workout.state === 'idle' || !workout.tasks.length) {
+    gen.classList.remove('hidden');
+    box.classList.add('hidden');
+    return;
+  }
+  gen.classList.add('hidden');
+  box.classList.remove('hidden');
+
+  const locked = workout.state === 'active';
+  const total = tasksMeters(workout.tasks);
+  const n = workout.tasks.length;
+  const type = workout.tasks[0].type;
+
+  const cards = workout.tasks.map((t, i) => {
+    const m = parseTaskMeters(t.text);
     return `
-      <rect x="${x}" y="${y}" width="${barW}" height="${Math.max(barH, b.volume > 0 ? 3 : 0)}" rx="3" fill="var(--pool)"></rect>
-      ${label ? `<text x="${x + barW / 2}" y="${y - 4}" font-size="8" fill="var(--ink-soft)" text-anchor="middle">${label}</text>` : ''}
-      <text x="${x + barW / 2}" y="${h - 4}" font-size="7" fill="var(--ink-soft)" text-anchor="middle">${pad2(b.start.getDate())}.${pad2(b.start.getMonth() + 1)}</text>
-    `;
+    <article class="wcard t-${t.type}">
+      ${cutBadge(m)}
+      <div class="wc-head"><div class="wc-idx">${i + 1}</div><div class="wc-title">${esc(t.text)}</div></div>
+      <div class="wc-foot">
+        <div class="chips"><span class="chip">${TYPE_LABEL[t.type] || ''}</span></div>
+        ${locked ? '' : `<button class="chip" onclick="swapTask(${i})">${svgIcon('<path d="M20 11a8 8 0 0 0-14-4L4 9M4 4v5h5M4 13a8 8 0 0 0 14 4l2-2M20 20v-5h-5"/>')}Заменить</button>`}
+      </div>
+    </article>`;
   }).join('');
-  document.getElementById('volumeChart').innerHTML = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="140" preserveAspectRatio="xMidYMid meet">${bars}</svg>`;
-}
 
-function formatBirthDate(iso) {
-  if (!iso) return '—';
-  const [y, m, d] = iso.split('-');
-  return `${d}.${m}.${y}`;
-}
+  const actions = locked
+    ? `<button class="btn btn-lime" onclick="finishSwim()">Завершить тренировку</button>`
+    : `<button class="btn" onclick="startSwim()">Плыть</button>
+       <button class="btn btn-ghost" onclick="resetWorkout()">Другая нагрузка</button>`;
 
-function showRegistration(prefill) {
-  document.getElementById('mainScreen').classList.add('hidden');
-  document.getElementById('bottomNav').classList.add('hidden');
-  document.getElementById('regScreen').classList.remove('hidden');
-  if (prefill && profile) {
-    document.getElementById('regFirst').value = profile.firstName || '';
-    document.getElementById('regLast').value = profile.lastName || '';
-    document.getElementById('regBirthDate').value = profile.birthDate || '';
-    document.getElementById('regLevel').value = profile.level || 'beginner';
-    document.getElementById('regStroke').value = profile.stroke || 'freestyle';
-  }
-}
-
-function showMain() {
-  document.getElementById('regScreen').classList.add('hidden');
-  document.getElementById('mainScreen').classList.remove('hidden');
-  document.getElementById('bottomNav').classList.remove('hidden');
-  updateProfileSummary();
-}
-
-async function saveProfile() {
-  const firstName = document.getElementById('regFirst').value.trim();
-  const lastName = document.getElementById('regLast').value.trim();
-  const birthDate = document.getElementById('regBirthDate').value;
-  const level = document.getElementById('regLevel').value;
-  const stroke = document.getElementById('regStroke').value;
-  if (!firstName || !birthDate) return;
-  profile = { firstName, lastName, birthDate, level, stroke };
-  await saveState('swimdemo_profile', profile);
-  showMain();
-  renderWorkout();
+  box.innerHTML = `
+    <div class="sum">
+      <div>
+        <h2>${total > 0 ? formatVolume(total) : 'Тренировка'}</h2>
+        <p>${n} ${plural(n, 'задание', 'задания', 'заданий')}, ${(TYPE_LABEL[type] || '').toLowerCase()}</p>
+      </div>
+      ${locked ? '<span class="status"><i></i>Идёт тренировка</span>' : ''}
+    </div>
+    ${cards}
+    <div class="after-list">${actions}</div>`;
 }
 
 async function generate() {
-  const type = document.getElementById('type').value;
   const level = profile.level;
   const countByLevel = { beginner: 3, intermediate: 4, advanced: 5 };
   workout = {
     state: 'ready',
-    tasks: pickTasks(type, level, countByLevel[level]).map(text => ({ text: personalizeText(text), type, level })),
+    tasks: pickTasks(selectedType, level, countByLevel[level]).map(text => ({ text: personalizeText(text), type: selectedType, level })),
     startedAt: null
   };
   renderWorkout();
   await saveState('swimdemo_workout', workout);
 }
-
 async function swapTask(idx) {
   if (workout.state !== 'ready') return;
   const w = workout.tasks[idx];
@@ -948,7 +999,6 @@ async function swapTask(idx) {
   renderWorkout();
   await saveState('swimdemo_workout', workout);
 }
-
 async function startSwim() {
   if (workout.state !== 'ready') return;
   workout.state = 'active';
@@ -956,271 +1006,266 @@ async function startSwim() {
   renderWorkout();
   await saveState('swimdemo_workout', workout);
 }
-
+async function resetWorkout() {
+  if (workout.state !== 'ready') return;
+  workout = { state: 'idle', tasks: [], startedAt: null };
+  renderWorkout();
+  await saveState('swimdemo_workout', workout);
+}
 async function finishSwim() {
   if (workout.state !== 'active') return;
-  const history = await loadState('swimdemo_history', []);
   const firstType = workout.tasks[0] ? workout.tasks[0].type : null;
   const durationMin = workout.startedAt ? Math.max(1, Math.round((Date.now() - workout.startedAt) / 60000)) : null;
-  history.unshift({
+  const list = [{
     id: Date.now(),
-    date: new Date().toISOString().slice(0, 10),
+    date: toISODate(new Date()),
     type: firstType,
     level: profile.level,
     stroke: profile.stroke,
     tasks: workout.tasks.map(t => t.text),
     durationMin
-  });
-  await saveState('swimdemo_history', history);
+  }, ...historyCache];
+  await saveHistory(list);
   workout = { state: 'idle', tasks: [], startedAt: null };
   await saveState('swimdemo_workout', workout);
-  renderWorkout();
+  renderAll();
 }
 
-function renderWorkout() {
-  const genCard = document.getElementById('generatorCard');
-  const card = document.getElementById('workoutCard');
-  const list = document.getElementById('taskList');
-  const actions = document.getElementById('workoutActions');
-  const statusLabel = document.getElementById('workoutStatus');
-
-  if (workout.state === 'idle' || !workout.tasks.length) {
-    genCard.classList.remove('hidden');
-    card.classList.add('hidden');
-    return;
-  }
-
-  genCard.classList.add('hidden');
-  card.classList.remove('hidden');
-
-  const locked = workout.state === 'active';
-
-  list.innerHTML = workout.tasks.map((t, i) => `
-    <div class="task">
-      <div class="task-idx">${i + 1}</div>
-      <div class="task-body"><div class="task-text">${t.text}</div></div>
-      ${locked ? '' : `<button class="swap-btn" onclick="swapTask(${i})">Заменить</button>`}
-    </div>
-  `).join('');
-
-  if (locked) {
-    statusLabel.classList.remove('hidden');
-    actions.innerHTML = `<button class="btn-primary btn-finish" onclick="finishSwim()">Завершить тренировку</button>`;
-  } else {
-    statusLabel.classList.add('hidden');
-    actions.innerHTML = `<button class="btn-primary" onclick="startSwim()">Плыть</button>`;
-  }
-}
-
-async function getHistoryMap() {
-  const history = await loadState('swimdemo_history', []);
+/* ============================================================
+   Рендер: календарь
+   ============================================================ */
+function historyMap() {
   const map = {};
-  history.forEach(h => { (map[h.date] = map[h.date] || []).push(h); });
+  historyCache.forEach(h => { (map[h.date] = map[h.date] || []).push(h); });
   return map;
 }
-
-function pad2(n) { return n < 10 ? '0' + n : '' + n; }
-function toISODate(d) { return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; }
-function startOfWeek(date) {
-  const d = new Date(date);
-  const day = (d.getDay() + 6) % 7;
-  d.setDate(d.getDate() - day);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-function monthMatrix(date) {
-  const year = date.getFullYear(), month = date.getMonth();
-  const firstOfMonth = new Date(year, month, 1);
-  const startOffset = (firstOfMonth.getDay() + 6) % 7;
-  const gridStart = new Date(year, month, 1 - startOffset);
-  const days = [];
-  for (let i = 0; i < 42; i++) {
-    const d = new Date(gridStart);
-    d.setDate(gridStart.getDate() + i);
-    days.push(d);
-  }
-  return days;
-}
-
-let calendarView = 'month';
-let calendarDate = new Date();
-let selectedDate = null;
-let editingHistoryId = null;
-
 function calPrev() {
-  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1);
+  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() - 1, 1);
   else calendarDate.setDate(calendarDate.getDate() - 7);
   renderCalendar();
 }
 function calNext() {
-  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() + 1);
+  if (calendarView === 'month') calendarDate.setMonth(calendarDate.getMonth() + 1, 1);
   else calendarDate.setDate(calendarDate.getDate() + 7);
   renderCalendar();
 }
-function setCalendarView(v) {
-  calendarView = v;
-  renderCalendar();
-}
+function setCalendarView(v) { calendarView = v; renderCalendar(); }
 function selectCalendarDay(iso) {
   selectedDate = (selectedDate === iso) ? null : iso;
   renderCalendar();
 }
 
-const MONTH_NAMES = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
-const MONTH_SHORT = ['янв', 'фев', 'мар', 'апр', 'май', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
-const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-
-async function renderCalendar() {
-  const map = await getHistoryMap();
-  const label = document.getElementById('calendarLabel');
-  const grid = document.getElementById('calendarGrid');
-  document.querySelectorAll('.view-toggle-btn').forEach(b => b.classList.toggle('active', b.dataset.view === calendarView));
+function renderCalendar() {
+  const map = historyMap();
+  const label = $('calendarLabel');
+  const grid = $('calendarGrid');
+  document.querySelectorAll('#calSeg button').forEach(b => b.classList.toggle('on', b.dataset.view === calendarView));
   const todayISO = toISODate(new Date());
 
   if (calendarView === 'month') {
     label.textContent = `${MONTH_NAMES[calendarDate.getMonth()]} ${calendarDate.getFullYear()}`;
-    const days = monthMatrix(calendarDate);
-    grid.className = 'cal-grid cal-grid-month';
+    grid.className = 'cal-grid-month';
     grid.innerHTML = WEEKDAYS.map(d => `<div class="cal-weekday">${d}</div>`).join('') +
-      days.map(d => {
+      monthMatrix(calendarDate).map(d => {
         const iso = toISODate(d);
-        const classes = ['cal-day'];
-        if (d.getMonth() !== calendarDate.getMonth()) classes.push('cal-day-outside');
-        if (map[iso]) classes.push('cal-day-active');
-        if (iso === todayISO) classes.push('cal-day-today');
-        if (iso === selectedDate) classes.push('cal-day-selected');
-        return `<button class="${classes.join(' ')}" onclick="selectCalendarDay('${iso}')">${d.getDate()}</button>`;
+        const c = ['cal-day'];
+        if (d.getMonth() !== calendarDate.getMonth()) c.push('cal-day-outside');
+        if (map[iso]) c.push('cal-day-active');
+        if (iso === todayISO) c.push('cal-day-today');
+        if (iso === selectedDate) c.push('cal-day-selected');
+        return `<button class="${c.join(' ')}" onclick="selectCalendarDay('${iso}')">${d.getDate()}</button>`;
       }).join('');
   } else {
     const start = startOfWeek(calendarDate);
     const end = new Date(start); end.setDate(start.getDate() + 6);
     const fmt = d => `${d.getDate()} ${MONTH_SHORT[d.getMonth()]}`;
     label.textContent = `${fmt(start)} – ${fmt(end)}`;
-    grid.className = 'cal-grid cal-grid-week';
+    grid.className = 'cal-grid-week';
     grid.innerHTML = Array.from({ length: 7 }).map((_, i) => {
       const d = new Date(start); d.setDate(start.getDate() + i);
       const iso = toISODate(d);
-      const classes = ['cal-day', 'cal-day-week'];
-      if (map[iso]) classes.push('cal-day-active');
-      if (iso === todayISO) classes.push('cal-day-today');
-      if (iso === selectedDate) classes.push('cal-day-selected');
-      return `<button class="${classes.join(' ')}" onclick="selectCalendarDay('${iso}')"><span class="cal-day-wd">${WEEKDAYS[i]}</span><span class="cal-day-num">${d.getDate()}</span></button>`;
+      const c = ['cal-day', 'cal-day-week'];
+      if (map[iso]) c.push('cal-day-active');
+      if (iso === todayISO) c.push('cal-day-today');
+      if (iso === selectedDate) c.push('cal-day-selected');
+      return `<button class="${c.join(' ')}" onclick="selectCalendarDay('${iso}')"><span class="cal-day-wd">${WEEKDAYS[i]}</span><span class="cal-day-num">${d.getDate()}</span></button>`;
     }).join('');
   }
-
   renderDayDetails(map);
 }
 
 function renderDayDetails(map) {
-  const wrap = document.getElementById('calendarDetails');
+  const wrap = $('calendarDetails');
   if (!selectedDate) { wrap.innerHTML = ''; return; }
   const entries = map[selectedDate];
   const [y, m, d] = selectedDate.split('-');
   const dateLabel = `${d}.${m}.${y}`;
   if (!entries) {
-    wrap.innerHTML = `<div class="section-title">${dateLabel}</div><div class="empty">В этот день тренировок не было</div>`;
+    wrap.innerHTML = `<h2 class="section-title">${dateLabel}</h2>
+      <div class="empty" style="padding-top:0">В этот день тренировок не было.</div>
+      <div style="text-align:center"><button class="link-btn" onclick="openManualWorkout()">Добавить тренировку</button></div>`;
     return;
   }
-  wrap.innerHTML = `<div class="section-title">${dateLabel}</div>` + entries.map(h => `
-    <div class="history-item">
-      <div>
-        ${h.type ? `<span class="badge">${TYPE_LABEL[h.type] || h.type}</span>` : ''}
-        <span class="badge">${LEVEL_LABEL[h.level] || h.level}</span>
-        <span class="badge">${STROKE_LABEL[h.stroke] || h.stroke}</span>
-        ${h.durationMin ? `<span class="badge">${h.durationMin} мин</span>` : ''}
+  wrap.innerHTML = `<h2 class="section-title">${dateLabel}</h2>` + entries.map(h => {
+    const m = tasksMeters(h.tasks);
+    const chips = [
+      LEVEL_LABEL[h.level] || h.level,
+      STROKE_LABEL[h.stroke] || h.stroke,
+      h.durationMin ? `${h.durationMin} мин` : ''
+    ].filter(Boolean).map(t => `<span class="chip">${esc(t)}</span>`).join('');
+    return `
+    <article class="wcard t-${h.type || 'none'}">
+      ${cutBadge(m)}
+      <h3 class="wc-title" style="padding-right:56px">${h.type ? TYPE_LABEL[h.type] : 'Тренировка'}</h3>
+      <div class="chips" style="margin-top:10px">${chips}</div>
+      <ol class="wc-tasks">${h.tasks.map((t, i) => `<li><span>${i + 1}</span><span>${esc(t)}</span></li>`).join('')}</ol>
+      <div class="wc-actions">
+        <button class="chip" onclick="editHistoryEntry(${h.id})">Редактировать</button>
+        <button class="chip" onclick="deleteHistoryEntry(${h.id})">Удалить</button>
       </div>
-      <div class="history-tasks" style="border-top: none; margin-top: 8px; padding-top: 0;">
-        ${h.tasks.map((t, i) => `<div class="history-task">${i + 1}. ${t}</div>`).join('')}
-      </div>
-      <div style="display: flex; gap: 16px; margin-top: 8px;">
-        <button class="del" onclick="editHistoryEntry(${h.id})">редактировать</button>
-        <button class="del" onclick="deleteHistoryEntry(${h.id})">удалить</button>
-      </div>
-    </div>
-  `).join('');
+    </article>`;
+  }).join('');
 }
 
+/* ============================================================
+   Своя тренировка
+   ============================================================ */
 function openManualWorkout() {
   editingHistoryId = null;
-  document.getElementById('manualWorkoutOverlay').classList.remove('hidden');
-  document.getElementById('mwDate').value = selectedDate || toISODate(new Date());
-  document.getElementById('mwType').value = '';
-  document.getElementById('mwTasks').value = '';
-  document.getElementById('mwDuration').value = '';
+  $('mwTitle').textContent = 'Своя тренировка';
+  $('manualWorkoutOverlay').classList.remove('hidden');
+  $('mwDate').value = selectedDate || toISODate(new Date());
+  $('mwType').value = '';
+  $('mwTasks').value = '';
+  $('mwDuration').value = '';
 }
-
-async function editHistoryEntry(id) {
-  const history = await loadState('swimdemo_history', []);
-  const h = history.find(x => x.id === id);
+function editHistoryEntry(id) {
+  const h = historyCache.find(x => x.id === id);
   if (!h) return;
   editingHistoryId = id;
-  document.getElementById('manualWorkoutOverlay').classList.remove('hidden');
-  document.getElementById('mwDate').value = h.date;
-  document.getElementById('mwType').value = h.type || '';
-  document.getElementById('mwTasks').value = h.tasks.join('\n');
-  document.getElementById('mwDuration').value = h.durationMin || '';
+  $('mwTitle').textContent = 'Изменить тренировку';
+  $('manualWorkoutOverlay').classList.remove('hidden');
+  $('mwDate').value = h.date;
+  $('mwType').value = h.type || '';
+  $('mwTasks').value = h.tasks.join('\n');
+  $('mwDuration').value = h.durationMin || '';
 }
-
 function closeManualWorkout() {
   editingHistoryId = null;
-  document.getElementById('manualWorkoutOverlay').classList.add('hidden');
+  $('manualWorkoutOverlay').classList.add('hidden');
 }
-
 async function saveManualWorkout() {
-  const date = document.getElementById('mwDate').value;
-  const type = document.getElementById('mwType').value || null;
-  const tasksRaw = document.getElementById('mwTasks').value.trim();
-  const durationVal = document.getElementById('mwDuration').value;
+  const date = $('mwDate').value;
+  const type = $('mwType').value || null;
+  const tasksRaw = $('mwTasks').value.trim();
+  const durationVal = $('mwDuration').value;
   if (!date || !tasksRaw) return;
   const tasks = tasksRaw.split('\n').map(t => t.trim()).filter(Boolean);
   const durationMin = durationVal ? parseInt(durationVal, 10) : null;
 
-  const history = await loadState('swimdemo_history', []);
+  let list = [...historyCache];
   if (editingHistoryId) {
-    const idx = history.findIndex(x => x.id === editingHistoryId);
-    if (idx !== -1) {
-      history[idx] = { ...history[idx], date, type, tasks, durationMin };
-    }
+    const idx = list.findIndex(x => x.id === editingHistoryId);
+    if (idx !== -1) list[idx] = { ...list[idx], date, type, tasks, durationMin };
   } else {
-    history.unshift({
-      id: Date.now(),
-      date,
-      type,
-      level: profile.level,
-      stroke: profile.stroke,
-      tasks,
-      durationMin
-    });
+    list.unshift({ id: Date.now(), date, type, level: profile.level, stroke: profile.stroke, tasks, durationMin });
   }
-  await saveState('swimdemo_history', history);
+  await saveHistory(list);
   closeManualWorkout();
   selectedDate = date;
-  renderCalendar();
-  renderProfileStats();
+  calendarDate = parseISO(date);
+  renderAll();
+}
+async function deleteHistoryEntry(id) {
+  await saveHistory(historyCache.filter(h => h.id !== id));
+  renderAll();
 }
 
-async function deleteHistoryEntry(id) {
-  let history = await loadState('swimdemo_history', []);
-  history = history.filter(h => h.id !== id);
-  await saveState('swimdemo_history', history);
-  renderCalendar();
-  renderProfileStats();
+/* ============================================================
+   Рендер: профиль
+   ============================================================ */
+function renderProfile() {
+  if (!profile) return;
+  $('heroName').textContent = `${profile.firstName} ${profile.lastName}`.trim();
+  $('pvBirth').textContent = formatBirthDate(profile.birthDate);
+  $('pvStroke').textContent = STROKE_LABEL[profile.stroke] || '—';
+  $('pvLevel').textContent = LEVEL_LABEL[profile.level] || '—';
+
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const snap = weekSnapshot();
+  $('arcBox').innerHTML = arcSvg(snap.pct, formatVolume(snap.vol), 'на этой неделе');
+  $('statVolume').textContent = formatVolume(volumeSum(historyCache));
+  $('statMonth').textContent = formatVolume(volumeSum(historyCache.filter(h => parseISO(h.date) >= monthStart)));
+  $('statWorkouts').textContent = historyCache.length;
+  renderChart();
 }
+
+/* ============================================================
+   Регистрация, навигация, запуск
+   ============================================================ */
+function showRegistration(prefill) {
+  $('mainScreen').classList.add('hidden');
+  $('bottomNav').classList.add('hidden');
+  $('regScreen').classList.remove('hidden');
+  $('regError').classList.add('hidden');
+  $('regCancel').classList.toggle('hidden', !profile);
+  if (prefill && profile) {
+    $('regFirst').value = profile.firstName || '';
+    $('regLast').value = profile.lastName || '';
+    $('regBirthDate').value = profile.birthDate || '';
+    $('regLevel').value = profile.level || 'beginner';
+    $('regStroke').value = profile.stroke || 'freestyle';
+  }
+  window.scrollTo(0, 0);
+}
+function cancelRegistration() { if (profile) showMain(); }
+function showMain() {
+  $('regScreen').classList.add('hidden');
+  $('mainScreen').classList.remove('hidden');
+  $('bottomNav').classList.remove('hidden');
+  renderAll();
+}
+async function saveProfile() {
+  const firstName = $('regFirst').value.trim();
+  const lastName = $('regLast').value.trim();
+  const birthDate = $('regBirthDate').value;
+  const level = $('regLevel').value;
+  const stroke = $('regStroke').value;
+  if (!firstName || !birthDate) { $('regError').classList.remove('hidden'); return; }
+  profile = { firstName, lastName, birthDate, level, stroke };
+  await saveState('swimdemo_profile', profile);
+  showMain();
+}
+
+function renderAll() {
+  renderHome();
+  renderWorkout();
+  renderCalendar();
+  renderProfile();
+}
+
+function showTab(id) {
+  document.querySelectorAll('.navbtn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tabcontent').forEach(p => p.classList.toggle('hidden', p.id !== id));
+  if (id === 'calendarTab') renderCalendar();
+  if (id === 'profileTab') renderProfile();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click', () => showTab(btn.dataset.tab)));
 
 (async function init() {
   if (tg) {
     tg.ready();
     tg.expand();
+    try { tg.setHeaderColor('#0A0A09'); tg.setBackgroundColor('#0A0A09'); } catch (e) {}
   }
+  renderTypePills();
   profile = await loadState('swimdemo_profile', null);
-  if (!profile) {
-    showRegistration(false);
-  } else {
-    showMain();
-  }
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
-  renderWorkout();
-  await renderProfileStats();
+  historyCache = await loadState('swimdemo_history', []);
+  if (!profile) showRegistration(false);
+  else showMain();
 })();
 </script>
 </body>
