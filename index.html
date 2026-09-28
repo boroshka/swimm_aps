@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#0A0A09">
+<meta name="theme-color" content="#080B12">
 <title>Пул задач — тренировки пловца</title>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -11,16 +11,16 @@
 <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0A0A09;
-    --surface: #161513;
-    --surface-2: #211F1C;
-    --line: rgba(255, 255, 255, 0.08);
-    --ink: #F6F3EC;
-    --soft: #8F8A80;
-    --orange: #FF9800;
-    --lime: #D4FF00;
-    --dark: #14130F;
-    --danger: #FF5A4D;
+    --bg: #080B12;
+    --surface: #111621;
+    --surface-2: #1A2131;
+    --line: rgba(190, 205, 235, 0.10);
+    --ink: #EEF2FA;
+    --soft: #8590A8;
+    --blue: #6C9BFF;
+    --rose: #DDA5B4;
+    --dark: #0A0E18;
+    --danger: #FF6B6B;
     --font: 'Urbanist', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   }
 
@@ -29,7 +29,7 @@
   body {
     margin: 0;
     background:
-      radial-gradient(120% 60% at 50% -10%, rgba(255, 152, 0, 0.09), transparent 60%),
+      radial-gradient(120% 60% at 50% -10%, rgba(108, 155, 255, 0.11), transparent 60%),
       var(--bg);
     background-attachment: fixed;
     color: var(--ink);
@@ -46,7 +46,7 @@
   .hidden { display: none !important; }
   button { font-family: inherit; cursor: pointer; color: inherit; }
   button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-    outline: 2px solid var(--orange);
+    outline: 2px solid var(--blue);
     outline-offset: 2px;
   }
 
@@ -64,13 +64,13 @@
     padding: 16px 22px;
     font-size: 16px;
     font-weight: 700;
-    background: var(--orange);
+    background: var(--blue);
     color: var(--dark);
     transition: transform 0.12s ease, filter 0.15s ease;
   }
   .btn:active { transform: scale(0.98); }
   .btn:hover { filter: brightness(1.06); }
-  .btn-lime { background: var(--lime); }
+  .btn-rose { background: var(--rose); }
   .btn-ghost {
     background: transparent;
     color: var(--soft);
@@ -81,7 +81,7 @@
   .btn-row .btn { flex: 1; }
   .link-btn {
     background: none; border: none; padding: 6px 2px;
-    color: var(--orange); font-weight: 700; font-size: 14px;
+    color: var(--blue); font-weight: 700; font-size: 14px;
   }
 
   /* ---------- Forms ---------- */
@@ -91,7 +91,7 @@
     padding: 14px 16px;
     border: 1px solid var(--line);
     border-radius: 16px;
-    background: #0F0E0D;
+    background: #0B0F18;
     color: var(--ink);
     font-family: inherit;
     font-size: 15px;
@@ -102,7 +102,7 @@
   .form-error { color: var(--danger); font-size: 13px; font-weight: 600; margin: -6px 4px 14px; }
 
   .panel {
-    background: linear-gradient(170deg, #1B1A17, #121110);
+    background: linear-gradient(170deg, #161C2A, #0E121B);
     border: 1px solid var(--line);
     border-radius: 28px;
     padding: 22px 20px;
@@ -121,7 +121,7 @@
   }
   .avatar {
     width: 46px; height: 46px; border-radius: 50%;
-    background: var(--orange); color: var(--dark);
+    background: var(--rose); color: var(--dark);
     display: grid; place-items: center;
     font-weight: 800; font-size: 20px; flex: none;
   }
@@ -130,7 +130,7 @@
 
   .hero {
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
-    background: linear-gradient(160deg, #221F1A, #12110F);
+    background: linear-gradient(160deg, #1A2233, #0E121B);
     border: 1px solid var(--line);
     border-radius: 30px;
     padding: 22px 20px;
@@ -142,14 +142,14 @@
   .hero-meta { font-size: 14px; color: var(--soft); margin-bottom: 14px; }
   .own-btn {
     display: inline-flex; align-items: center; gap: 8px;
-    background: var(--orange); color: var(--dark);
+    background: var(--blue); color: var(--dark);
     border: none; border-radius: 999px;
     padding: 10px 10px 10px 18px;
     font-weight: 700; font-size: 14px;
   }
   .own-btn .plus {
     width: 26px; height: 26px; border-radius: 50%;
-    border: 1.5px solid rgba(20, 19, 15, 0.6);
+    border: 1.5px solid rgba(10, 14, 24, 0.6);
     display: grid; place-items: center;
   }
   .ring-small { position: relative; width: 84px; height: 84px; flex: none; }
@@ -181,13 +181,13 @@
     background: var(--surface-2);
     display: grid; place-items: center;
   }
-  .pill.on { background: var(--orange); color: var(--dark); border-color: transparent; }
+  .pill.on { background: var(--blue); color: var(--dark); border-color: transparent; }
   .pill.on .ico { background: #fff; color: var(--dark); }
   svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ---------- Workout cards (with corner cut-out badge) ---------- */
   .wcard {
-    --c: #2A2926;
+    --c: #1E2638;
     position: relative;
     background: var(--c);
     color: var(--dark);
@@ -195,10 +195,10 @@
     padding: 20px 20px 16px;
     margin-bottom: 14px;
   }
-  .wcard.t-aerobic { --c: #43E0CB; }
-  .wcard.t-anaerobic { --c: #A99CF5; }
-  .wcard.t-sprint { --c: #C9F26B; }
-  .wcard.t-distance { --c: #FFB454; }
+  .wcard.t-aerobic { --c: #7FA6FF; }
+  .wcard.t-anaerobic { --c: #E2AEBB; }
+  .wcard.t-sprint { --c: #AFC7FF; }
+  .wcard.t-distance { --c: #C98FA1; }
   .wcard.t-none { color: var(--ink); }
   .cut {
     position: absolute; top: -8px; right: -6px;
@@ -244,11 +244,11 @@
   .sum h2 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
   .sum p { margin: 2px 0 0; color: var(--soft); font-size: 14px; font-weight: 600; }
   .status {
-    background: rgba(255, 152, 0, 0.16); color: var(--orange);
+    background: rgba(108, 155, 255, 0.16); color: var(--blue);
     border-radius: 999px; padding: 7px 14px; font-size: 13px; font-weight: 700;
     display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
   }
-  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--orange); animation: blink 1.6s ease-in-out infinite; }
+  .status i { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); animation: blink 1.6s ease-in-out infinite; }
   @keyframes blink { 50% { opacity: 0.3; } }
   .after-list { display: grid; gap: 10px; margin-top: 6px; }
 
@@ -266,7 +266,7 @@
     padding: 9px 14px; font-size: 13.5px; font-weight: 700; color: var(--soft);
     transition: background 0.2s ease, color 0.2s ease;
   }
-  .seg button.on { background: var(--orange); color: var(--dark); }
+  .seg button.on { background: var(--blue); color: var(--dark); }
   .seg.small { display: inline-flex; }
   .seg.small button { flex: none; padding: 6px 12px; font-size: 12.5px; }
 
@@ -295,9 +295,9 @@
   }
   .cal-day:active { transform: scale(0.92); }
   .cal-day-outside { opacity: 0.3; }
-  .cal-day-today { border-color: var(--orange); }
-  .cal-day-active { background: var(--lime); color: var(--dark); font-weight: 800; }
-  .cal-day-selected { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--orange); }
+  .cal-day-today { border-color: var(--blue); }
+  .cal-day-active { background: var(--rose); color: var(--dark); font-weight: 800; }
+  .cal-day-selected { box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--blue); }
   .cal-day-week { aspect-ratio: auto; height: 74px; flex-direction: column; gap: 4px; border-radius: 18px; }
   .cal-day-wd { font-size: 11.5px; opacity: 0.7; font-weight: 700; }
   .cal-day-num { font-size: 18px; font-weight: 800; }
@@ -305,7 +305,7 @@
   /* ---------- Profile ---------- */
   .who {
     position: relative;
-    background: linear-gradient(160deg, #221F1A, #12110F);
+    background: linear-gradient(160deg, #1A2233, #0E121B);
     border: 1px solid var(--line);
     border-radius: 30px;
     padding: 22px 20px 12px;
@@ -321,10 +321,10 @@
     background: var(--surface); border: 1px solid var(--line);
     display: grid; place-items: center; padding: 0;
   }
-  .edit-btn:hover { border-color: var(--orange); color: var(--orange); }
+  .edit-btn:hover { border-color: var(--blue); color: var(--blue); }
 
   .activity {
-    background: linear-gradient(170deg, #1B1A17, #121110);
+    background: linear-gradient(170deg, #161C2A, #0E121B);
     border: 1px solid var(--line);
     border-radius: 28px; padding: 18px 16px 20px;
   }
@@ -352,7 +352,7 @@
     bottom: calc(12px + env(safe-area-inset-bottom, 0px));
     width: calc(100% - 32px); max-width: 448px;
     display: flex;
-    background: rgba(24, 23, 21, 0.92);
+    background: rgba(16, 21, 32, 0.92);
     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
     border: 1px solid var(--line);
     border-radius: 30px;
@@ -367,7 +367,7 @@
     transition: color 0.2s ease, background 0.2s ease;
   }
   .navbtn svg.i { width: 22px; height: 22px; }
-  .navbtn.active { color: var(--orange); background: rgba(255, 152, 0, 0.12); }
+  .navbtn.active { color: var(--blue); background: rgba(108, 155, 255, 0.14); }
 
   /* ---------- Modal ---------- */
   .modal-overlay {
@@ -377,7 +377,7 @@
     z-index: 50;
   }
   .modal-card {
-    background: #181715;
+    background: #111621;
     border: 1px solid var(--line);
     border-radius: 28px 28px 0 0;
     padding: 22px 20px calc(22px + env(safe-area-inset-bottom, 0px));
@@ -499,9 +499,9 @@
         <div id="arcBox"></div>
         <div class="arc-note">Дуга показывает долю от вашей лучшей недели из последних восьми</div>
         <div class="legend">
-          <div><b id="statVolume">0 м</b><span><i style="background:var(--lime)"></i>всего проплыто</span></div>
-          <div><b id="statMonth">0 м</b><span><i style="background:var(--orange)"></i>в этом месяце</span></div>
-          <div><b id="statWorkouts">0</b><span><i style="background:#43E0CB"></i>тренировок</span></div>
+          <div><b id="statVolume">0 м</b><span><i style="background:var(--rose)"></i>всего проплыто</span></div>
+          <div><b id="statMonth">0 м</b><span><i style="background:var(--blue)"></i>в этом месяце</span></div>
+          <div><b id="statWorkouts">0</b><span><i style="background:#9DB8F5"></i>тренировок</span></div>
         </div>
       </div>
 
@@ -830,7 +830,7 @@ function arcSvg(pct, centerBig, centerSmall) {
   for (let a = start + sweep * p; a <= start + sweep + 0.1; a += 6) {
     const [x1, y1] = polar(cx, cy, 64, a);
     const [x2, y2] = polar(cx, cy, 80, a);
-    ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(255,255,255,0.14)" stroke-width="2" stroke-linecap="round"/>`;
+    ticks += `<line x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="rgba(190,205,235,0.14)" stroke-width="2" stroke-linecap="round"/>`;
   }
   let arc = '';
   if (p > 0) {
@@ -840,17 +840,17 @@ function arcSvg(pct, centerBig, centerSmall) {
     arc = `<path class="draw" d="M${sx.toFixed(1)},${sy.toFixed(1)} A${r},${r} 0 ${sweep * p > 180 ? 1 : 0} 1 ${ex.toFixed(1)},${ey.toFixed(1)}" fill="none" stroke="url(#arcGrad)" stroke-width="16" stroke-linecap="round" style="--len:${len.toFixed(1)};stroke-dasharray:${len.toFixed(1)}"/>`;
   }
   return `<svg class="arc" viewBox="0 0 200 200" role="img" aria-label="Неделя: ${pct}% от лучшей">
-    <defs><linearGradient id="arcGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#FF9800"/><stop offset="1" stop-color="#D4FF00"/></linearGradient></defs>
+    <defs><linearGradient id="arcGrad" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#6C9BFF"/><stop offset="1" stop-color="#DDA5B4"/></linearGradient></defs>
     ${ticks}${arc}
-    <text x="100" y="104" text-anchor="middle" font-size="30" font-weight="800" fill="#F6F3EC" style="font-family:var(--font)">${centerBig}</text>
-    <text x="100" y="126" text-anchor="middle" font-size="12" font-weight="600" fill="#8F8A80" style="font-family:var(--font)">${centerSmall}</text>
+    <text x="100" y="104" text-anchor="middle" font-size="30" font-weight="800" fill="#EEF2FA" style="font-family:var(--font)">${centerBig}</text>
+    <text x="100" y="126" text-anchor="middle" font-size="12" font-weight="600" fill="#8590A8" style="font-family:var(--font)">${centerSmall}</text>
   </svg>`;
 }
 function ringSmallSvg(pct) {
   const r = 34, c = 2 * Math.PI * r, dash = c * clamp(pct / 100, 0, 1);
   return `<svg viewBox="0 0 84 84">
-    <circle cx="42" cy="42" r="${r}" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="6"/>
-    <circle cx="42" cy="42" r="${r}" fill="none" stroke="#FF9800" stroke-width="6" stroke-linecap="round"
+    <circle cx="42" cy="42" r="${r}" fill="none" stroke="rgba(190,205,235,0.12)" stroke-width="6"/>
+    <circle cx="42" cy="42" r="${r}" fill="none" stroke="#DDA5B4" stroke-width="6" stroke-linecap="round"
       stroke-dasharray="${dash.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 42 42)"/>
   </svg><span>${pct}%</span>`;
 }
@@ -876,24 +876,24 @@ function renderChart() {
   let grid = '';
   for (let k = 0; k <= 3; k++) {
     const y = pt + (ch * k) / 3;
-    grid += `<line x1="${pl - 10}" y1="${y}" x2="${W - pr + 10}" y2="${y}" stroke="rgba(255,255,255,0.07)" stroke-dasharray="3 5"/>`;
+    grid += `<line x1="${pl - 10}" y1="${y}" x2="${W - pr + 10}" y2="${y}" stroke="rgba(190,205,235,0.08)" stroke-dasharray="3 5"/>`;
   }
 
   const [hx, hy] = pts[chartIdx];
   const hv = b[chartIdx].volume;
-  const column = `<rect x="${(hx - step / 2 + 3).toFixed(1)}" y="${pt - 12}" width="${(step - 6).toFixed(1)}" height="${ch + 12}" rx="10" fill="rgba(212,255,0,0.12)"/>`;
-  const dot = `<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="6" fill="#D4FF00" stroke="#161513" stroke-width="3"/>`;
-  const valTxt = `<text x="${hx.toFixed(1)}" y="${(hy - 14).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="#F6F3EC">${hv > 0 ? formatVolume(hv) : '0'}</text>`;
+  const column = `<rect x="${(hx - step / 2 + 3).toFixed(1)}" y="${pt - 12}" width="${(step - 6).toFixed(1)}" height="${ch + 12}" rx="10" fill="rgba(221,165,180,0.14)"/>`;
+  const dot = `<circle cx="${hx.toFixed(1)}" cy="${hy.toFixed(1)}" r="6" fill="#DDA5B4" stroke="#111621" stroke-width="3"/>`;
+  const valTxt = `<text x="${hx.toFixed(1)}" y="${(hy - 14).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="800" fill="#EEF2FA">${hv > 0 ? formatVolume(hv) : '0'}</text>`;
 
   const labels = b.map((x, i) =>
-    `<text x="${pts[i][0].toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10.5" font-weight="${i === chartIdx ? 800 : 600}" fill="${i === chartIdx ? '#F6F3EC' : '#8F8A80'}">${x.label}</text>`).join('');
+    `<text x="${pts[i][0].toFixed(1)}" y="${H - 8}" text-anchor="middle" font-size="10.5" font-weight="${i === chartIdx ? 800 : 600}" fill="${i === chartIdx ? '#EEF2FA' : '#8590A8'}">${x.label}</text>`).join('');
   const hits = b.map((x, i) =>
     `<rect x="${(pts[i][0] - step / 2).toFixed(1)}" y="0" width="${step.toFixed(1)}" height="${H}" fill="transparent" style="cursor:pointer" onclick="setChartIdx(${i})"/>`).join('');
 
   const noData = b.every(x => x.volume === 0);
   $('volumeChart').innerHTML = `
     <svg class="chart-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="График метража">
-      <defs><linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#FF9800"/><stop offset="1" stop-color="#D4FF00"/></linearGradient></defs>
+      <defs><linearGradient id="lineGrad" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6C9BFF"/><stop offset="1" stop-color="#DDA5B4"/></linearGradient></defs>
       ${grid}${column}
       <path d="${d}" fill="none" stroke="url(#lineGrad)" stroke-width="3" stroke-linecap="round"/>
       ${dot}${valTxt}${labels}${hits}
@@ -962,8 +962,8 @@ function renderWorkout() {
   }).join('');
 
   const actions = locked
-    ? `<button class="btn btn-lime" onclick="finishSwim()">Завершить тренировку</button>`
-    : `<button class="btn" onclick="startSwim()">Плыть</button>
+    ? `<button class="btn btn-rose" onclick="finishSwim()">Завершить тренировку</button>`
+    : `<button class="btn btn-rose" onclick="startSwim()">Плыть</button>
        <button class="btn btn-ghost" onclick="resetWorkout()">Другая нагрузка</button>`;
 
   box.innerHTML = `
@@ -1258,7 +1258,7 @@ document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click'
   if (tg) {
     tg.ready();
     tg.expand();
-    try { tg.setHeaderColor('#0A0A09'); tg.setBackgroundColor('#0A0A09'); } catch (e) {}
+    try { tg.setHeaderColor('#080B12'); tg.setBackgroundColor('#080B12'); } catch (e) {}
   }
   renderTypePills();
   profile = await loadState('swimdemo_profile', null);
