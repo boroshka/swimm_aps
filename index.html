@@ -564,6 +564,21 @@
       <div id="ratingResults"></div>
     </div>
 
+    <!-- ===== Соревнования ===== -->
+    <div id="compTab" class="tabcontent hidden">
+      <h1>Календарь стартов</h1>
+      <div class="panel" style="margin-bottom:16px">
+        <div class="btn-row">
+          <select id="cpMonth" style="margin-bottom:0"></select>
+          <select id="cpYear" style="margin-bottom:0"></select>
+        </div>
+        <div style="margin-top:16px">
+          <button class="btn" onclick="fetchCompetitions()">Показать</button>
+        </div>
+      </div>
+      <div id="compResults"></div>
+    </div>
+
     <!-- ===== Профиль ===== -->
     <div id="profileTab" class="tabcontent hidden">
       <h1>Профиль</h1>
@@ -636,6 +651,9 @@
   </button>
   <button class="navbtn" data-tab="calendarTab">
     <svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>Календарь
+  </button>
+  <button class="navbtn" data-tab="compTab">
+    <svg class="i" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/><path d="M8.5 14l2 2 4-4"/></svg>Старты
   </button>
   <button class="navbtn" data-tab="ratingTab">
     <svg class="i" viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4z"/><path d="M7 5H4a3 3 0 0 0 3 5M17 5h3a3 3 0 0 1-3 5"/></svg>Рейтинг
@@ -825,6 +843,80 @@ async function fetchRating() {
   } catch (e) {
     box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
   }
+}
+
+/* ============================================================
+   Календарь стартов (russwimming.ru через тот же прокси)
+   ============================================================ */
+function initCompFilters() {
+  const monthSel = $('cpMonth');
+  const yearSel = $('cpYear');
+  MONTH_NAMES.forEach((name, i) => {
+    const opt = document.createElement('option');
+    opt.value = i + 1;
+    opt.textContent = name;
+    monthSel.appendChild(opt);
+  });
+  const now = new Date();
+  monthSel.value = now.getMonth() + 1;
+  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === now.getFullYear()) opt.selected = true;
+    yearSel.appendChild(opt);
+  }
+}
+
+async function fetchCompetitions() {
+  const box = $('compResults');
+  if (!RATING_WORKER_URL) {
+    box.innerHTML = `<div class="rank-status err">Прокси ещё не настроен (RATING_WORKER_URL пуст).</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="rank-status">Загружаем календарь…</div>`;
+
+  const params = new URLSearchParams({
+    year: $('cpYear').value,
+    month: $('cpMonth').value,
+    sport_id: '101'
+  });
+
+  try {
+    const resp = await fetch(`${RATING_WORKER_URL}/competitions?${params.toString()}`);
+    const raw = await resp.text();
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      box.innerHTML = `<div class="rank-status err">Сервер ответил не тем, что ожидалось. Ответ ниже — скопируйте и пришлите в чат:</div>
+        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(raw.slice(0, 3000))}</textarea>`;
+      return;
+    }
+    if (data.error) {
+      box.innerHTML = `<div class="rank-status err">${esc(data.error)}</div>`;
+      return;
+    }
+    renderCompetitions(data.rows || []);
+  } catch (e) {
+    box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
+  }
+}
+
+function renderCompetitions(rows) {
+  const box = $('compResults');
+  if (!rows.length) {
+    box.innerHTML = `<div class="rank-status">На выбранный месяц соревнований не нашлось.</div>`;
+    return;
+  }
+  box.innerHTML = rows.map(r => `
+    <div class="rank-row" style="align-items:flex-start">
+      <div class="rank-info">
+        <div class="rank-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" style="color:inherit;text-decoration:none">${esc(r.title)}</a>` : esc(r.title)}</div>
+        <div class="rank-meta">${esc(r.dates)}${r.location ? ' · ' + esc(r.location) : ''}</div>
+        ${r.results && r.results.length ? `<div class="rank-meta" style="margin-top:4px"><a href="${esc(r.results[0])}" target="_blank" style="color:var(--blue)">Результаты (PDF)</a></div>` : ''}
+      </div>
+    </div>`).join('');
 }
 
 function dedupeBestPerPerson(rows) {
@@ -1465,6 +1557,7 @@ document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click'
     try { tg.setHeaderColor('#080B12'); tg.setBackgroundColor('#080B12'); } catch (e) {}
   }
   renderTypePills();
+  initCompFilters();
   profile = await loadState('swimdemo_profile', null);
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
   historyCache = await loadState('swimdemo_history', []);
