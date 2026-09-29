@@ -429,9 +429,9 @@
     <div class="panel">
       <p class="lead">По уровню и стилю мы подбираем задания в тренировке.</p>
       <label for="regFirst">Имя</label>
-      <input type="text" id="regFirst" placeholder="Имя" autocomplete="given-name">
+      <input type="text" id="regFirst" placeholder="Имя" autocomplete="given-name" oninput="toggleRsfSearchBlock()">
       <label for="regLast">Фамилия</label>
-      <input type="text" id="regLast" placeholder="Фамилия" autocomplete="family-name">
+      <input type="text" id="regLast" placeholder="Фамилия" autocomplete="family-name" oninput="toggleRsfSearchBlock()">
       <label for="regBirthDate">Дата рождения</label>
       <input type="date" id="regBirthDate">
       <label for="regLevel">Уровень плавания</label>
@@ -448,6 +448,12 @@
         <option value="butterfly">Баттерфляй</option>
         <option value="medley">Комплексное плавание</option>
       </select>
+
+      <div id="rsfSearchBlock" class="hidden" style="margin:-4px 0 16px">
+        <button type="button" class="link-btn" style="padding-left:0" onclick="searchRsfPerson()">Найти себя в рейтинге ФВВСР</button>
+        <div id="rsfSearchResults"></div>
+      </div>
+
       <div id="regError" class="form-error hidden">Укажите имя и дату рождения.</div>
       <div class="btn-row">
         <button class="btn btn-ghost hidden" id="regCancel" onclick="cancelRegistration()">Отмена</button>
@@ -615,6 +621,9 @@
         </div>
         <div id="volumeChart"></div>
       </div>
+
+      <h2 class="section-title">История стартов</h2>
+      <div id="startsBox"></div>
     </div>
 
   </div>
@@ -761,6 +770,9 @@ const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 let profile = null;
 let workout = { state: 'idle', tasks: [], startedAt: null };
 let historyCache = [];
+let startsCache = [];
+let rsfPersonKey = null;
+let rsfSearchMatches = []; // сырые строки последнего поиска по рейтингу
 let selectedType = 'aerobic';
 let calendarView = 'month';
 let calendarDate = new Date();
@@ -768,6 +780,128 @@ let selectedDate = null;
 let editingHistoryId = null;
 let chartMode = 'weeks';
 let chartIdx = null;
+
+/* ============================================================
+   Поиск себя в рейтинге ФВВСР при регистрации + импорт истории стартов
+   ============================================================ */
+function toggleRsfSearchBlock() {
+  const ready = $('regFirst').value.trim() && $('regLast').value.trim();
+  $('rsfSearchBlock').classList.toggle('hidden', !ready);
+  if (!ready) $('rsfSearchResults').innerHTML = '';
+}
+
+function personKey(row) {
+  const p = (row.Persons && row.Persons[0]) || {};
+  return p.PersonID || [p.LastName, p.FirstName, p.BirthYear].join('|');
+}
+
+async function searchRsfPerson() {
+  const box = $('rsfSearchResults');
+  if (!RATING_WORKER_URL) {
+    box.innerHTML = `<div class="rank-status err">Рейтинг ещё не настроен.</div>`;
+    return;
+  }
+  const fullName = `${$('regLast').value.trim()} ${$('regFirst').value.trim()}`.trim();
+  box.innerHTML = `<div class="rank-status">Ищем в рейтинге…</div>`;
+
+  const body = {
+    sort: [{ field: 'Result', dir: 'asc' }],
+    page: 1, pageSize: 200, skip: 0, take: 200,
+    sportID: RATING_SPORT_ID,
+    genderID: null,
+    unique: false,
+    options: JSON.stringify({ minAge: null, maxAge: null, alias: null, pool: null, locations: [], name: fullName })
+  };
+
+  try {
+    const resp = await fetch(RATING_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body)
+    });
+    const raw = await resp.text();
+    let rows;
+    try { rows = JSON.parse(raw); } catch (e) {
+      box.innerHTML = `<div class="rank-status err">Сервер ответил не тем, что ожидалось. Скопируйте и пришлите в чат:</div>
+        <textarea readonly style="width:100%;height:140px;font-size:11px;margin-top:10px">${esc(raw.slice(0, 3000))}</textarea>`;
+      return;
+    }
+    if (!Array.isArray(rows) || !rows.length) {
+      box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>`;
+      return;
+    }
+    rsfSearchMatches = rows;
+    renderRsfCandidates(rows);
+  } catch (e) {
+    box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
+  }
+}
+
+function renderRsfCandidates(rows) {
+  const box = $('rsfSearchResults');
+  const byPerson = new Map();
+  rows.forEach(r => {
+    const key = personKey(r);
+    if (!byPerson.has(key)) byPerson.set(key, []);
+    byPerson.get(key).push(r);
+  });
+  const cards = [...byPerson.entries()].map(([key, list]) => {
+    const p = (list[0].Persons && list[0].Persons[0]) || {};
+    const region = (p.City && p.City.RegionTiny) || '';
+    return `
+    <button type="button" class="rank-row" style="width:100%;text-align:left;border:none;cursor:pointer" onclick="pickRsfPerson('${esc(key)}')">
+      <div class="rank-info">
+        <div class="rank-name">${esc((p.LastName || '') + ' ' + (p.FirstName || ''))}</div>
+        <div class="rank-meta">${esc(p.BirthYear || '')}${region ? ' · ' + esc(region) : ''} · ${list.length} ${plural(list.length, 'результат', 'результата', 'результатов')}</div>
+      </div>
+    </button>`;
+  }).join('');
+  box.innerHTML = `<div class="rank-meta" style="margin:8px 0">Это вы?</div>${cards}
+    <button type="button" class="link-btn" onclick="$('rsfSearchResults').innerHTML=''">Не я / пропустить</button>`;
+}
+
+async function pickRsfPerson(key) {
+  const matches = rsfSearchMatches.filter(r => personKey(r) === key);
+  const starts = matches.map(r => {
+    const p = (r.Persons && r.Persons[0]) || {};
+    return {
+      id: r.ParticipantID || (key + '-' + r.Date + '-' + r.Result),
+      discipline: r.Discipline || r.DisciplineName || r.Event || '',
+      result: r.FormattedResult || '',
+      date: r.Date || '',
+      tournament: r.Tournament || '',
+      location: r.Location || '',
+      source: 'rsf'
+    };
+  });
+  startsCache = starts;
+  await saveState('swimdemo_starts', starts);
+  rsfPersonKey = key;
+  const box = $('rsfSearchResults');
+  box.innerHTML = `<div class="rank-status">Импортировано ${starts.length} ${plural(starts.length, 'старт', 'старта', 'стартов')} из рейтинга ФВВСР.</div>`;
+}
+
+function renderStarts() {
+  const box = $('startsBox');
+  if (!startsCache.length) {
+    box.innerHTML = `<div class="empty">Стартов пока нет. Их можно импортировать из рейтинга ФВВСР на экране профиля («Изменить профиль» → «Найти себя в рейтинге»).</div>`;
+    return;
+  }
+  const sorted = [...startsCache].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  box.innerHTML = sorted.map(s => {
+    const dateStr = s.date ? new Date(s.date).toLocaleDateString('ru-RU') : '';
+    return `
+    <div class="rank-row">
+      <div class="rank-info">
+        <div class="rank-name">${esc(s.discipline || s.tournament || 'Старт')}</div>
+        <div class="rank-meta">${esc(dateStr)}${s.location ? ' · ' + esc(s.location) : ''}</div>
+      </div>
+      <div class="rank-result">
+        <div class="rank-time">${esc(s.result || '—')}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
 
 /* ============================================================
    Рейтинг ФВВСР (rsf.lsport.net через собственный прокси)
@@ -1495,6 +1629,7 @@ function renderProfile() {
   $('statMonth').textContent = formatVolume(volumeSum(historyCache.filter(h => parseISO(h.date) >= monthStart)));
   $('statWorkouts').textContent = historyCache.length;
   renderChart();
+  renderStarts();
 }
 
 /* ============================================================
@@ -1513,6 +1648,8 @@ function showRegistration(prefill) {
     $('regLevel').value = profile.level || 'beginner';
     $('regStroke').value = profile.stroke || 'freestyle';
   }
+  $('rsfSearchResults').innerHTML = '';
+  toggleRsfSearchBlock();
   window.scrollTo(0, 0);
 }
 function cancelRegistration() { if (profile) showMain(); }
@@ -1561,6 +1698,7 @@ document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click'
   profile = await loadState('swimdemo_profile', null);
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
   historyCache = await loadState('swimdemo_history', []);
+  startsCache = await loadState('swimdemo_starts', []);
   if (!profile) showRegistration(false);
   else showMain();
 })();
