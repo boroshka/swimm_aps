@@ -795,46 +795,61 @@ function personKey(row) {
   return p.PersonID || [p.LastName, p.FirstName, p.BirthYear].join('|');
 }
 
+async function rsfQuery(name, genderID) {
+  const body = {
+    sort: [{ field: 'Result', dir: 'asc' }],
+    page: 1, pageSize: 200, skip: 0, take: 200,
+    sportID: RATING_SPORT_ID,
+    genderID: genderID,
+    unique: false,
+    options: JSON.stringify({ minAge: null, maxAge: null, alias: null, pool: null, locations: [], name: name })
+  };
+  const resp = await fetch(RATING_WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=utf-8' },
+    body: JSON.stringify(body)
+  });
+  const raw = await resp.text();
+  return JSON.parse(raw); // может бросить исключение — обрабатывается снаружи
+}
+
 async function searchRsfPerson() {
   const box = $('rsfSearchResults');
   if (!RATING_WORKER_URL) {
     box.innerHTML = `<div class="rank-status err">Рейтинг ещё не настроен.</div>`;
     return;
   }
-  const fullName = `${$('regLast').value.trim()} ${$('regFirst').value.trim()}`.trim();
+  const last = $('regLast').value.trim();
+  const first = $('regFirst').value.trim();
+  const fullName = `${last} ${first}`.trim();
   box.innerHTML = `<div class="rank-status">Ищем в рейтинге…</div>`;
 
-  const body = {
-    sort: [{ field: 'Result', dir: 'asc' }],
-    page: 1, pageSize: 200, skip: 0, take: 200,
-    sportID: RATING_SPORT_ID,
-    genderID: null,
-    unique: false,
-    options: JSON.stringify({ minAge: null, maxAge: null, alias: null, pool: null, locations: [], name: fullName })
-  };
+  // Пробуем несколько вариантов запроса по очереди, потому что сайт может
+  // не находить ничего без указания пола или с полным ФИО целиком.
+  const attempts = [
+    () => rsfQuery(fullName, null),
+    () => Promise.all([rsfQuery(fullName, 1), rsfQuery(fullName, 2)]).then(([a, b]) => [...a, ...b]),
+    () => Promise.all([rsfQuery(last, 1), rsfQuery(last, 2)]).then(([a, b]) => [...a, ...b]),
+  ];
 
-  try {
-    const resp = await fetch(RATING_WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(body)
-    });
-    const raw = await resp.text();
-    let rows;
-    try { rows = JSON.parse(raw); } catch (e) {
-      box.innerHTML = `<div class="rank-status err">Сервер ответил не тем, что ожидалось. Скопируйте и пришлите в чат:</div>
-        <textarea readonly style="width:100%;height:140px;font-size:11px;margin-top:10px">${esc(raw.slice(0, 3000))}</textarea>`;
-      return;
+  let rows = [];
+  let lastRaw = null;
+  for (const attempt of attempts) {
+    try {
+      rows = await attempt();
+      if (Array.isArray(rows) && rows.length) break;
+    } catch (e) {
+      lastRaw = String(e);
     }
-    if (!Array.isArray(rows) || !rows.length) {
-      box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>`;
-      return;
-    }
-    rsfSearchMatches = rows;
-    renderRsfCandidates(rows);
-  } catch (e) {
-    box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
   }
+
+  if (!Array.isArray(rows) || !rows.length) {
+    box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>
+      ${lastRaw ? `<div class="rank-meta" style="margin-top:6px">Техническая деталь: ${esc(lastRaw)}</div>` : ''}`;
+    return;
+  }
+  rsfSearchMatches = rows;
+  renderRsfCandidates(rows);
 }
 
 function renderRsfCandidates(rows) {
