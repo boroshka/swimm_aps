@@ -810,7 +810,17 @@ async function rsfQuery(name, genderID) {
     body: JSON.stringify(body)
   });
   const raw = await resp.text();
-  return JSON.parse(raw); // может бросить исключение — обрабатывается снаружи
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (e) {
+    throw new Error('Сервер прислал не JSON: ' + raw.slice(0, 300));
+  }
+  if (!Array.isArray(data)) {
+    // Например, сам прокси вернул {"error": "..."} вместо списка результатов
+    throw new Error('Ответ не список: ' + JSON.stringify(data).slice(0, 300));
+  }
+  return data;
 }
 
 async function searchRsfPerson() {
@@ -828,8 +838,8 @@ async function searchRsfPerson() {
   // не находить ничего без указания пола или с полным ФИО целиком.
   const attempts = [
     () => rsfQuery(fullName, null),
-    () => Promise.all([rsfQuery(fullName, 1), rsfQuery(fullName, 2)]).then(([a, b]) => [...a, ...b]),
-    () => Promise.all([rsfQuery(last, 1), rsfQuery(last, 2)]).then(([a, b]) => [...a, ...b]),
+    () => Promise.all([rsfQuery(fullName, 1), rsfQuery(fullName, 2)]).then(([a, b]) => [...(a || []), ...(b || [])]),
+    () => Promise.all([rsfQuery(last, 1), rsfQuery(last, 2)]).then(([a, b]) => [...(a || []), ...(b || [])]),
   ];
 
   let rows = [];
