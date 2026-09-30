@@ -566,7 +566,12 @@
       </select>
 
       <div id="rsfSearchBlock" class="hidden" style="margin:-4px 0 16px">
-        <button type="button" class="link-btn" style="padding-left:0" onclick="searchRsfPerson()">Найти себя в рейтинге ФВВСР</button>
+        <label style="margin-bottom:6px">Пол в рейтинге</label>
+        <div class="seg small" id="rsfGenderSeg" style="margin-bottom:6px">
+          <button type="button" data-g="1" class="on" onclick="setRsfGender(1)">Муж.</button>
+          <button type="button" data-g="2" onclick="setRsfGender(2)">Жен.</button>
+        </div>
+        <br>        <button type="button" class="link-btn" style="padding-left:0" onclick="searchRsfPerson()">Найти себя в рейтинге ФВВСР</button>
         <div id="rsfSearchResults"></div>
       </div>
 
@@ -927,12 +932,21 @@ async function rsfQuery(name, genderID, alias) {
     unique: false,
     options: JSON.stringify({ minAge: null, maxAge: null, alias: alias, pool: null, locations: [], name: name })
   };
-  const resp = await fetch(RATING_WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    body: JSON.stringify(body)
-  });
-  const raw = await resp.text();
+  // Если один запрос завис, не ждём его вечно (но и не режем медленные ответы сервера)
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 30000);
+  let raw;
+  try {
+    const resp = await fetch(RATING_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    raw = await resp.text();
+  } finally {
+    clearTimeout(timer);
+  }
   let data;
   try {
     data = JSON.parse(raw);
@@ -946,6 +960,98 @@ async function rsfQuery(name, genderID, alias) {
   return data.map(r => ({ ...r, _alias: alias }));
 }
 
+let rsfGender = 1;
+let rsfSearchToken = 0;
+let rsfSearchDone = Promise.resolve();
+let rsfLast = { name: '', gender: 1, failed: [] };   // последний проход поиска и дисциплины, которые не ответили
+const RSF_LIMIT = 6;                                  // одновременных запросов к прокси
+
+function setRsfGender(g) {
+  rsfGender = g;
+  document.querySelectorAll('#rsfGenderSeg button').forEach(b => b.classList.toggle('on', +b.dataset.g === g));
+}
+
+/* ---------- Разбор данных строки рейтинга ---------- */
+function rsfToIso(v) {
+  if (v == null || v === '') return '';
+  const ok = (y, m, d) => (y >= 1990 && y <= 2100 && m >= 1 && m <= 12 && d >= 1 && d <= 31)
+    ? `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}` : '';
+  const fromMs = (ms) => {
+    let dt = new Date(ms);
+    if (isNaN(dt)) return '';
+    // локальная полночь в поясах UTC+3…+12 приходит как вечер предыдущего дня по UTC
+    if (dt.getUTCHours() >= 12) dt = new Date(ms + 12 * 3600 * 1000);
+    return ok(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
+  };
+  if (typeof v === 'number') return fromMs(v > 1e11 ? v : v * 1000);
+  const s = String(v).trim();
+  let m = s.match(/^\/Date\((-?\d+)/);
+  if (m) return fromMs(Number(m[1]));
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return ok(+m[1], +m[2], +m[3]);
+  m = s.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/);      // 12.06.2026 — как на сайте
+  if (m) return ok(+m[3], +m[2], +m[1]);
+  return '';
+}
+function rsfPickDate(r) {
+  const c = [r.Date, r.CompetitionDate, r.TournamentDate, r.EventDate, r.StartDate, r.DateStart, r.ResultDate];
+  ['Tournament', 'Competition', 'Event'].forEach(k => {
+    const o = r[k];
+    if (o && typeof o === 'object') Object.keys(o).forEach(f => { if (/date/i.test(f)) c.push(o[f]); });
+  });
+  Object.keys(r).forEach(k => { if (/date/i.test(k) && !/birth|creat|updat|modif/i.test(k)) c.push(r[k]); });
+  for (const v of c) { const iso = rsfToIso(v); if (iso) return iso; }
+  return '';
+}
+function rsfText(v) {
+  if (v == null) return '';
+  if (typeof v === 'string') return v;
+  if (typeof v === 'object') return String(v.Name || v.Title || v.ShortName || v.FullName || v.Caption || '');
+  return String(v);
+}
+
+const RSF_CACHE_KEY = 'rsf_search_cache_v2';
+function rsfCacheGet(key) {
+  try {
+    const c = JSON.parse(localStorage.getItem(RSF_CACHE_KEY) || '{}')[key];
+    return c && Date.now() - c.t < 24 * 3600 * 1000 ? c.rows : null;
+  } catch (e) { return null; }
+}
+function rsfCacheSet(key, rows) {
+  try {
+    const all = JSON.parse(localStorage.getItem(RSF_CACHE_KEY) || '{}');
+    all[key] = { t: Date.now(), rows };
+    const keys = Object.keys(all).sort((x, y) => all[y].t - all[x].t).slice(0, 4);
+    const trimmed = {}; keys.forEach(k => { trimmed[k] = all[k]; });
+    localStorage.setItem(RSF_CACHE_KEY, JSON.stringify(trimmed));
+  } catch (e) {}
+}
+
+/* ---------- Запросы: не больше RSF_LIMIT одновременно, 3 попытки на дисциплину ---------- */
+async function rsfQueryRetry(name, gender, alias, tries = 3) {
+  let err;
+  for (let t = 0; t < tries; t++) {
+    try { return await rsfQuery(name, gender, alias); }
+    catch (e) { err = e; if (t < tries - 1) await new Promise(r => setTimeout(r, 500 * (t + 1))); }
+  }
+  throw err;
+}
+async function rsfRunAliases(name, gender, aliases, collected, onStep) {
+  const failed = [];
+  let idx = 0, done = 0;
+  const lane = async () => {
+    while (idx < aliases.length) {
+      const alias = aliases[idx++];
+      try { collected.push(...await rsfQueryRetry(name, gender, alias)); }
+      catch (e) { failed.push(alias); }
+      done++;
+      onStep(done, failed.length);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(RSF_LIMIT, aliases.length) }, lane));
+  return failed;
+}
+
 async function searchRsfPerson() {
   const box = $('rsfSearchResults');
   if (!RATING_WORKER_URL) {
@@ -955,50 +1061,79 @@ async function searchRsfPerson() {
   const last = $('regLast').value.trim();
   const first = $('regFirst').value.trim();
   const fullName = `${last} ${first}`.trim();
+  const token = ++rsfSearchToken;
+  const alive = () => token === rsfSearchToken;
+  rsfPersonKey = null;
+  rsfLast = { name: fullName, gender: rsfGender, failed: [] };
 
-  // "Любая дисциплина" на сайте не работает — сервер требует конкретную
-  // дисциплину в каждом запросе. Поэтому перебираем все дисциплины и оба
-  // пола, объединяя результаты.
-  const aliases = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.value);
-  const total = aliases.length * 2;
-  let done = 0;
-  box.innerHTML = `<div class="rank-status">Проверяем дисциплины: 0 из ${total}…</div>`;
-
-  const runOne = (name, alias, gender) =>
-    rsfQuery(name, gender, alias)
-      .catch(() => [])
-      .finally(() => {
-        done++;
-        box.innerHTML = `<div class="rank-status">Проверяем дисциплины: ${done} из ${total}…</div>`;
-      });
-
-  const jobs = [];
-  aliases.forEach(alias => {
-    jobs.push(runOne(fullName, alias, 1));
-    jobs.push(runOne(fullName, alias, 2));
-  });
-  let rows = (await Promise.all(jobs)).flat();
-
-  if (!rows.length && last !== fullName) {
-    done = 0;
-    box.innerHTML = `<div class="rank-status">По полному имени не нашли, пробуем по одной фамилии: 0 из ${total}…</div>`;
-    const jobs2 = [];
-    aliases.forEach(alias => {
-      jobs2.push(runOne(last, alias, 1));
-      jobs2.push(runOne(last, alias, 2));
-    });
-    rows = (await Promise.all(jobs2)).flat();
-  }
-
-  if (!rows.length) {
-    box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>`;
+  // Повторный поиск того же имени — мгновенно из кэша (на сутки)
+  const cacheKey = `${rsfGender}|${fullName.toLowerCase()}`;
+  const cached = rsfCacheGet(cacheKey);
+  if (cached && cached.length) {
+    rsfSearchMatches = cached;
+    rsfSearchDone = Promise.resolve();
+    renderRsfCandidates(cached);
     return;
   }
-  rsfSearchMatches = rows;
-  renderRsfCandidates(rows);
+
+  const aliases = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.value);
+  const total = aliases.length;
+  box.innerHTML = `<div class="rank-status">Ищем в рейтинге…</div>`;
+
+  const runPass = async (name) => {
+    const collected = [];
+    rsfSearchMatches = collected;
+    const failed = await rsfRunAliases(name, rsfGender, aliases, collected, (done) => {
+      if (!alive()) return;
+      const status = done < total ? `Проверяем дисциплины: ${done} из ${total}…` : '';
+      if (collected.length) renderRsfCandidates(collected, status);
+      else box.innerHTML = `<div class="rank-status">${status || 'Ищем в рейтинге…'}</div>`;
+    });
+    rsfLast = { name, gender: rsfGender, failed };
+    return { rows: collected, failed: failed.length };
+  };
+
+  rsfSearchDone = (async () => {
+    let res = await runPass(fullName);
+    if (!alive()) return;
+    if (!res.rows.length && last !== fullName && res.failed < total) {
+      box.innerHTML = `<div class="rank-status">По полному имени не нашли, пробуем по одной фамилии…</div>`;
+      res = await runPass(last);
+      if (!alive()) return;
+    }
+    if (!res.rows.length) {
+      box.innerHTML = res.failed >= total / 2
+        ? `<div class="rank-status err">Рейтинг сейчас не отвечает (ошибок: ${res.failed} из ${total}). Попробуйте ещё раз чуть позже или продолжите регистрацию без импорта.</div>`
+        : `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Проверьте пол и написание или продолжите регистрацию без импорта.</div>`;
+      return;
+    }
+    if (!res.failed) rsfCacheSet(cacheKey, res.rows);   // неполный результат в кэш не кладём
+    renderRsfCandidates(res.rows);
+  })();
+  await rsfSearchDone;
 }
 
-function renderRsfCandidates(rows) {
+// Догрузить дисциплины, которые не ответили
+async function retryRsfFailed() {
+  const box = $('rsfSearchResults');
+  const { name, gender, failed } = rsfLast;
+  if (!failed.length) return;
+  const pickedKey = rsfPersonKey;
+  box.innerHTML = `<div class="rank-status">Догружаем ${failed.length} ${plural(failed.length, 'дистанцию', 'дистанции', 'дистанций')}…</div>`;
+  const still = await rsfRunAliases(name, gender, failed, rsfSearchMatches, () => {});
+  rsfLast.failed = still;
+  if (pickedKey) await pickRsfPerson(pickedKey);
+  else renderRsfCandidates(rsfSearchMatches);
+}
+
+function rsfFailedNote() {
+  const f = rsfLast.failed || [];
+  if (!f.length) return '';
+  return `<div class="rank-meta" style="margin:8px 0;color:var(--danger)">Не ответили: ${esc(f.map(disciplineLabel).join(', '))}.
+    <button type="button" class="link-btn" onclick="retryRsfFailed()">Догрузить</button></div>`;
+}
+
+function renderRsfCandidates(rows, progress) {
   const box = $('rsfSearchResults');
   const byPerson = new Map();
   rows.forEach(r => {
@@ -1009,16 +1144,18 @@ function renderRsfCandidates(rows) {
   const cards = [...byPerson.entries()].map(([key, list]) => {
     const p = (list[0].Persons && list[0].Persons[0]) || {};
     const region = (p.City && p.City.RegionTiny) || '';
+    const discs = new Set(list.map(r => r._alias)).size;
     return `
     <button type="button" class="rank-row" style="width:100%;text-align:left;border:none;cursor:pointer" onclick="pickRsfPerson('${esc(key)}')">
       <div class="rank-info">
         <div class="rank-name">${esc((p.LastName || '') + ' ' + (p.FirstName || ''))}</div>
-        <div class="rank-meta">${esc(p.BirthYear || '')}${region ? ' · ' + esc(region) : ''} · ${list.length} ${plural(list.length, 'результат', 'результата', 'результатов')}</div>
+        <div class="rank-meta">${esc(p.BirthYear || '')}${region ? ' · ' + esc(region) : ''} · ${list.length} ${plural(list.length, 'результат', 'результата', 'результатов')} · ${discs} ${plural(discs, 'дистанция', 'дистанции', 'дистанций')}</div>
       </div>
     </button>`;
   }).join('');
-  box.innerHTML = `<div class="rank-meta" style="margin:8px 0">Это вы?</div>${cards}
-    <button type="button" class="link-btn" onclick="$('rsfSearchResults').innerHTML=''">Не я / пропустить</button>`;
+  box.innerHTML = `<div class="rank-meta" style="margin:8px 0">Это вы?${progress ? ' <span style="opacity:.8">· ' + esc(progress) + '</span>' : ''}</div>${cards}
+    ${progress ? '' : rsfFailedNote()}
+    <button type="button" class="link-btn" onclick="rsfSearchToken++;$('rsfSearchResults').innerHTML=''">Не я / пропустить</button>`;
 }
 
 function disciplineLabel(alias) {
@@ -1027,24 +1164,39 @@ function disciplineLabel(alias) {
 }
 
 async function pickRsfPerson(key) {
+  const box = $('rsfSearchResults');
+  box.innerHTML = `<div class="rank-status">Загружаем старты…</div>`;
+  await rsfSearchDone;     // дожидаемся конца поиска, чтобы импортировались все дистанции
   const matches = rsfSearchMatches.filter(r => personKey(r) === key);
-  const starts = matches.map(r => {
-    const p = (r.Persons && r.Persons[0]) || {};
-    return {
-      id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
-      discipline: disciplineLabel(r._alias),
-      result: r.FormattedResult || '',
-      date: r.Date || '',
-      tournament: r.Tournament || '',
-      location: r.Location || '',
-      source: 'rsf'
-    };
-  });
+  const starts = matches.map(r => ({
+    id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
+    discipline: disciplineLabel(r._alias),
+    result: r.FormattedResult || rsfText(r.Result),
+    date: rsfPickDate(r) || (typeof r.Date === 'string' ? r.Date : ''),
+    tournament: rsfText(r.Tournament) || rsfText(r.Competition),
+    location: rsfText(r.Location),
+    source: 'rsf'
+  }));
   startsCache = starts;
   await saveState('swimdemo_starts', starts);
   rsfPersonKey = key;
-  const box = $('rsfSearchResults');
-  box.innerHTML = `<div class="rank-status">Импортировано ${starts.length} ${plural(starts.length, 'старт', 'старта', 'стартов')} из рейтинга ФВВСР.</div>`;
+
+  // Сводка: сколько стартов по каждой дистанции
+  const byD = {};
+  starts.forEach(s => { byD[s.discipline] = (byD[s.discipline] || 0) + 1; });
+  const order = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.textContent);
+  const list = Object.keys(byD).sort((x, y) => order.indexOf(x) - order.indexOf(y))
+    .map(d => `${esc(d)} — ${byD[d]}`).join(' · ');
+  const undated = matches.filter(r => !rsfToIso(rsfPickDate(r))).length;
+  const sample = matches.find(r => !rsfToIso(rsfPickDate(r)));
+  const nD = Object.keys(byD).length;
+  box.innerHTML = `
+    <div class="rank-status" style="padding:14px 0 6px">Импортировано ${starts.length} ${plural(starts.length, 'старт', 'старта', 'стартов')} на ${nD} ${plural(nD, 'дистанции', 'дистанциях', 'дистанциях')}.</div>
+    <div class="rank-meta" style="line-height:1.6;text-align:center">${list}</div>
+    ${rsfFailedNote()}
+    ${undated ? `<div class="rank-meta" style="margin-top:8px;color:var(--danger)">У ${undated} ${plural(undated, 'старта', 'стартов', 'стартов')} не удалось прочитать дату — на графике их не будет.
+      <details><summary style="cursor:pointer">Показать сырые данные</summary>
+      <textarea readonly style="width:100%;height:150px;font-size:11px;margin-top:8px">${esc(JSON.stringify(sample, null, 1).slice(0, 2500))}</textarea></details></div>` : ''}`;
 }
 
 /* ============================================================
@@ -1077,12 +1229,7 @@ function stFmt(sec, dec = 2) {
   return m ? `${m}:${t.padStart(dec + 3, '0')}` : t;
 }
 function stFmtDelta(d) { return (d < 0 ? '−' : d > 0 ? '+' : '±') + stFmt(Math.abs(d)); }
-function stDay(s) {
-  const m = String(s.date || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
-  const d = new Date(s.date);
-  return isNaN(d) ? '' : toISODate(d);
-}
+function stDay(s) { return rsfToIso(s.date); }
 function stParts(day) { const [y, m, d] = day.split('-').map(Number); return { d, mon: ST_MON[m - 1], y }; }
 function stDateBadge(day) {
   if (!day) return `<div class="st-date"><b>—</b></div>`;
@@ -1237,8 +1384,10 @@ function renderStartsView(animate) {
   stCards = stBuildCards();
   const total = stCards.reduce((n, c) => n + c.items.length, 0);
   const filtered = stF.period !== 'all';
-  $('stTotal').textContent = total
-    ? `${total} ${plural(total, 'старт', 'старта', 'стартов')} на ${stCards.length} ${plural(stCards.length, 'дистанции', 'дистанциях', 'дистанциях')}${filtered ? ' за выбранный период' : ''}`
+  const undated = stAll.filter(x => !x.day).length;
+  $('stTotal').innerHTML = total
+    ? esc(`${total} ${plural(total, 'старт', 'старта', 'стартов')} на ${stCards.length} ${plural(stCards.length, 'дистанции', 'дистанциях', 'дистанциях')}${filtered ? ' за выбранный период' : ''}`)
+      + (undated ? ` · <span style="color:var(--danger)">без даты: ${undated}</span> <button class="link-btn" style="font-size:13px" onclick="showRegistration(true)">обновить из рейтинга</button>` : '')
     : '';
 
   const list = $('stCards');
@@ -1668,10 +1817,17 @@ function csSet(key, value) {
   });
 }
 // Внутри Telegram — CloudStorage, снаружи — localStorage (для проверки в браузере)
+const CS_CHUNK = 3000; // лимит CloudStorage — 4096 символов на значение, поэтому длинные данные режем на части
 async function loadState(key, fallback) {
   try {
     if (cloud) {
-      const raw = await csGet(key);
+      let raw = await csGet(key);
+      if (raw && raw.startsWith('@chunks:')) {
+        const n = parseInt(raw.slice(8), 10) || 0;
+        const parts = [];
+        for (let i = 0; i < n; i++) parts.push((await csGet(`${key}_p${i}`)) || '');
+        raw = parts.join('');
+      }
       return raw ? JSON.parse(raw) : fallback;
     }
     const raw = localStorage.getItem(key);
@@ -1681,7 +1837,13 @@ async function loadState(key, fallback) {
 async function saveState(key, value) {
   try {
     const raw = JSON.stringify(value);
-    if (cloud) { await csSet(key, raw); return; }
+    if (cloud) {
+      if (raw.length <= CS_CHUNK) { await csSet(key, raw); return; }
+      const n = Math.ceil(raw.length / CS_CHUNK);
+      for (let i = 0; i < n; i++) await csSet(`${key}_p${i}`, raw.slice(i * CS_CHUNK, (i + 1) * CS_CHUNK));
+      await csSet(key, `@chunks:${n}`);
+      return;
+    }
     localStorage.setItem(key, raw);
   } catch (e) {}
 }
