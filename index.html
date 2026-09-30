@@ -923,7 +923,7 @@ function personKey(row) {
   return p.PersonID || [p.LastName, p.FirstName, p.BirthYear].join('|');
 }
 
-async function rsfQuery(name, genderID, alias) {
+async function rsfQuery(name, genderID, alias, timeoutMs = 45000) {
   const body = {
     sort: [{ field: 'Result', dir: 'asc' }],
     page: 1, pageSize: 200, skip: 0, take: 200,
@@ -932,30 +932,37 @@ async function rsfQuery(name, genderID, alias) {
     unique: false,
     options: JSON.stringify({ minAge: null, maxAge: null, alias: alias, pool: null, locations: [], name: name })
   };
-  // Если один запрос завис, не ждём его вечно (но и не режем медленные ответы сервера)
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 30000);
-  let raw;
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  let resp, raw;
   try {
-    const resp = await fetch(RATING_WORKER_URL, {
+    resp = await fetch(RATING_WORKER_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(body),
       signal: ctrl.signal
     });
     raw = await resp.text();
+  } catch (e) {
+    throw new Error(ctrl.signal.aborted ? `таймаут ${Math.round(timeoutMs / 1000)} с` : 'нет связи с прокси');
   } finally {
     clearTimeout(timer);
   }
+  if (!resp.ok) throw new Error(`HTTP ${resp.status}${raw ? ': ' + raw.slice(0, 80) : ''}`);
+  const txt = (raw || '').trim();
+  if (!txt || txt === 'null') return [];                 // пустой ответ = результатов нет
   let data;
-  try {
-    data = JSON.parse(raw);
-  } catch (e) {
-    throw new Error('Сервер прислал не JSON: ' + raw.slice(0, 300));
-  }
+  try { data = JSON.parse(txt); } catch (e) { throw new Error('не JSON: ' + txt.slice(0, 80)); }
   if (!Array.isArray(data)) {
-    // Например, сам прокси вернул {"error": "..."} вместо списка результатов
-    throw new Error('Ответ не список: ' + JSON.stringify(data).slice(0, 300));
+    if (data && typeof data === 'object') {
+      if (data.error || data.Error || data.message) throw new Error('ошибка сервера: ' + JSON.stringify(data).slice(0, 100));
+      const arr = data.Data || data.data || data.Items || data.items || data.Rows || data.rows || data.Results || data.results;
+      if (Array.isArray(arr)) data = arr;
+      else if (!Object.keys(data).length) data = [];
+      else throw new Error('не список: ' + JSON.stringify(data).slice(0, 100));
+    } else {
+      throw new Error('не список: ' + txt.slice(0, 80));
+    }
   }
   return data.map(r => ({ ...r, _alias: alias }));
 }
@@ -963,8 +970,7 @@ async function rsfQuery(name, genderID, alias) {
 let rsfGender = 1;
 let rsfSearchToken = 0;
 let rsfSearchDone = Promise.resolve();
-let rsfLast = { name: '', gender: 1, failed: [] };   // последний проход поиска и дисциплины, которые не ответили
-const RSF_LIMIT = 6;                                  // одновременных запросов к прокси
+let rsfLast = { name: '', gender: 1, failed: [], reasons: {} };   // последний проход поиска и дисциплины, которые не ответили
 
 function setRsfGender(g) {
   rsfGender = g;
@@ -1027,29 +1033,48 @@ function rsfCacheSet(key, rows) {
   } catch (e) {}
 }
 
-/* ---------- Запросы: не больше RSF_LIMIT одновременно, 3 попытки на дисциплину ---------- */
-async function rsfQueryRetry(name, gender, alias, tries = 3) {
-  let err;
-  for (let t = 0; t < tries; t++) {
-    try { return await rsfQuery(name, gender, alias); }
-    catch (e) { err = e; if (t < tries - 1) await new Promise(r => setTimeout(r, 500 * (t + 1))); }
-  }
-  throw err;
-}
-async function rsfRunAliases(name, gender, aliases, collected, onStep) {
+/* ---------- Запросы ----------
+   Сервер рейтинга отвечает небольшими порциями, а оборванный запрос он всё равно дообрабатывает,
+   поэтому: без повторов «в лоб», умеренный параллелизм, длинный таймаут и второй, более
+   щадящий проход только по тем дисциплинам, которые не ответили. */
+const rsfSleep = (ms) => new Promise(r => setTimeout(r, ms));
+let rsfProg = { running: false, text: '' };
+let rsfSaveTimer = null;
+
+async function rsfRunAliases(name, gender, aliases, collected, onStep, opts) {
+  const { limit = 4, timeout = 45000 } = opts || {};
   const failed = [];
   let idx = 0, done = 0;
   const lane = async () => {
     while (idx < aliases.length) {
       const alias = aliases[idx++];
-      try { collected.push(...await rsfQueryRetry(name, gender, alias)); }
-      catch (e) { failed.push(alias); }
+      try { collected.push(...await rsfQuery(name, gender, alias, timeout)); }
+      catch (e) { failed.push({ alias, reason: e.message || 'ошибка' }); }
       done++;
-      onStep(done, failed.length);
+      onStep(done, aliases.length);
     }
   };
-  await Promise.all(Array.from({ length: Math.min(RSF_LIMIT, aliases.length) }, lane));
+  await Promise.all(Array.from({ length: Math.min(limit, aliases.length) }, lane));
   return failed;
+}
+function rsfSetFailed(list) {
+  rsfLast.failed = list.map(f => f.alias);
+  rsfLast.reasons = {};
+  list.forEach(f => { rsfLast.reasons[f.alias] = f.reason; });
+}
+function persistStartsSoon() {
+  clearTimeout(rsfSaveTimer);
+  rsfSaveTimer = setTimeout(() => saveState('swimdemo_starts', startsCache), 700);
+}
+async function flushStarts() {
+  clearTimeout(rsfSaveTimer);
+  await saveState('swimdemo_starts', startsCache);
+}
+// Обновляет то, что показано на экране: список кандидатов или итоги импорта
+function rsfRefreshView() {
+  if (rsfPersonKey) applyRsfImport(rsfPersonKey);
+  else if (rsfSearchMatches.length) renderRsfCandidates(rsfSearchMatches, rsfProg.running ? rsfProg.text : '');
+  else if (rsfProg.running) $('rsfSearchResults').innerHTML = `<div class="rank-status">${esc(rsfProg.text || 'Ищем в рейтинге…')}</div>`;
 }
 
 async function searchRsfPerson() {
@@ -1064,7 +1089,7 @@ async function searchRsfPerson() {
   const token = ++rsfSearchToken;
   const alive = () => token === rsfSearchToken;
   rsfPersonKey = null;
-  rsfLast = { name: fullName, gender: rsfGender, failed: [] };
+  rsfLast = { name: fullName, gender: rsfGender, failed: [], reasons: {} };
 
   // Повторный поиск того же имени — мгновенно из кэша (на сутки)
   const cacheKey = `${rsfGender}|${fullName.toLowerCase()}`;
@@ -1072,24 +1097,37 @@ async function searchRsfPerson() {
   if (cached && cached.length) {
     rsfSearchMatches = cached;
     rsfSearchDone = Promise.resolve();
+    rsfProg = { running: false, text: '' };
     renderRsfCandidates(cached);
     return;
   }
 
   const aliases = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.value);
   const total = aliases.length;
-  box.innerHTML = `<div class="rank-status">Ищем в рейтинге…</div>`;
+  rsfProg = { running: true, text: 'Ищем в рейтинге…' };
+  rsfRefreshView();
 
   const runPass = async (name) => {
     const collected = [];
     rsfSearchMatches = collected;
-    const failed = await rsfRunAliases(name, rsfGender, aliases, collected, (done) => {
+    rsfLast = { name, gender: rsfGender, failed: [], reasons: {} };
+    const step1 = (done) => {
       if (!alive()) return;
-      const status = done < total ? `Проверяем дисциплины: ${done} из ${total}…` : '';
-      if (collected.length) renderRsfCandidates(collected, status);
-      else box.innerHTML = `<div class="rank-status">${status || 'Ищем в рейтинге…'}</div>`;
-    });
-    rsfLast = { name, gender: rsfGender, failed };
+      rsfProg = { running: true, text: `Проверяем дисциплины: ${done} из ${total}…` };
+      rsfRefreshView();
+    };
+    let failed = await rsfRunAliases(name, rsfGender, aliases, collected, step1, { limit: 4, timeout: 45000 });
+    if (failed.length && alive()) {
+      await rsfSleep(2500);      // даём серверу «выдохнуть» после первого прохода
+      const retry = failed.map(f => f.alias);
+      const step2 = (done, n) => {
+        if (!alive()) return;
+        rsfProg = { running: true, text: `Повторяем дистанции, которые не ответили: ${done} из ${n}…` };
+        rsfRefreshView();
+      };
+      failed = await rsfRunAliases(name, rsfGender, retry, collected, step2, { limit: 2, timeout: 60000 });
+    }
+    rsfSetFailed(failed);
     return { rows: collected, failed: failed.length };
   };
 
@@ -1097,40 +1135,49 @@ async function searchRsfPerson() {
     let res = await runPass(fullName);
     if (!alive()) return;
     if (!res.rows.length && last !== fullName && res.failed < total) {
-      box.innerHTML = `<div class="rank-status">По полному имени не нашли, пробуем по одной фамилии…</div>`;
+      rsfProg = { running: true, text: 'По полному имени не нашли, пробуем по одной фамилии…' };
+      rsfRefreshView();
       res = await runPass(last);
       if (!alive()) return;
     }
+    rsfProg = { running: false, text: '' };
     if (!res.rows.length) {
       box.innerHTML = res.failed >= total / 2
-        ? `<div class="rank-status err">Рейтинг сейчас не отвечает (ошибок: ${res.failed} из ${total}). Попробуйте ещё раз чуть позже или продолжите регистрацию без импорта.</div>`
+        ? `<div class="rank-status err">Рейтинг сейчас не отвечает (ошибок: ${res.failed} из ${total}). Попробуйте ещё раз чуть позже или продолжите регистрацию без импорта.</div>${rsfFailedNote()}`
         : `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Проверьте пол и написание или продолжите регистрацию без импорта.</div>`;
       return;
     }
     if (!res.failed) rsfCacheSet(cacheKey, res.rows);   // неполный результат в кэш не кладём
-    renderRsfCandidates(res.rows);
+    rsfRefreshView();
   })();
   await rsfSearchDone;
 }
 
 // Догрузить дисциплины, которые не ответили
 async function retryRsfFailed() {
-  const box = $('rsfSearchResults');
   const { name, gender, failed } = rsfLast;
   if (!failed.length) return;
-  const pickedKey = rsfPersonKey;
-  box.innerHTML = `<div class="rank-status">Догружаем ${failed.length} ${plural(failed.length, 'дистанцию', 'дистанции', 'дистанций')}…</div>`;
-  const still = await rsfRunAliases(name, gender, failed, rsfSearchMatches, () => {});
-  rsfLast.failed = still;
-  if (pickedKey) await pickRsfPerson(pickedKey);
-  else renderRsfCandidates(rsfSearchMatches);
+  const n = failed.length;
+  rsfProg = { running: true, text: `Догружаем ${n} ${plural(n, 'дистанцию', 'дистанции', 'дистанций')}…` };
+  rsfRefreshView();
+  const still = await rsfRunAliases(name, gender, failed, rsfSearchMatches, (done) => {
+    rsfProg = { running: true, text: `Догружаем: ${done} из ${n}…` };
+    rsfRefreshView();
+  }, { limit: 2, timeout: 60000 });
+  rsfSetFailed(still);
+  rsfProg = { running: false, text: '' };
+  rsfRefreshView();
+  if (rsfPersonKey) await flushStarts();
 }
 
 function rsfFailedNote() {
   const f = rsfLast.failed || [];
   if (!f.length) return '';
+  const reasons = f.map(a => `${disciplineLabel(a)}: ${(rsfLast.reasons && rsfLast.reasons[a]) || 'нет ответа'}`).join('\n');
   return `<div class="rank-meta" style="margin:8px 0;color:var(--danger)">Не ответили: ${esc(f.map(disciplineLabel).join(', '))}.
-    <button type="button" class="link-btn" onclick="retryRsfFailed()">Догрузить</button></div>`;
+    <button type="button" class="link-btn" onclick="retryRsfFailed()">Догрузить</button>
+    <details style="margin-top:4px"><summary style="cursor:pointer">Почему?</summary>
+      <textarea readonly style="width:100%;height:110px;font-size:11px;margin-top:6px">${esc(reasons)}</textarea></details></div>`;
 }
 
 function renderRsfCandidates(rows, progress) {
@@ -1163,10 +1210,8 @@ function disciplineLabel(alias) {
   return opt ? opt.textContent : (alias || '');
 }
 
-async function pickRsfPerson(key) {
+function applyRsfImport(key) {
   const box = $('rsfSearchResults');
-  box.innerHTML = `<div class="rank-status">Загружаем старты…</div>`;
-  await rsfSearchDone;     // дожидаемся конца поиска, чтобы импортировались все дистанции
   const matches = rsfSearchMatches.filter(r => personKey(r) === key);
   const starts = matches.map(r => ({
     id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
@@ -1178,8 +1223,9 @@ async function pickRsfPerson(key) {
     source: 'rsf'
   }));
   startsCache = starts;
-  await saveState('swimdemo_starts', starts);
-  rsfPersonKey = key;
+  persistStartsSoon();
+  // если история уже на экране — обновляем её по мере догрузки
+  if (profile && !$('mainScreen').classList.contains('hidden')) renderStarts();
 
   // Сводка: сколько стартов по каждой дистанции
   const byD = {};
@@ -1190,13 +1236,22 @@ async function pickRsfPerson(key) {
   const undated = matches.filter(r => !rsfToIso(rsfPickDate(r))).length;
   const sample = matches.find(r => !rsfToIso(rsfPickDate(r)));
   const nD = Object.keys(byD).length;
+  const running = rsfProg.running;
   box.innerHTML = `
     <div class="rank-status" style="padding:14px 0 6px">Импортировано ${starts.length} ${plural(starts.length, 'старт', 'старта', 'стартов')} на ${nD} ${plural(nD, 'дистанции', 'дистанциях', 'дистанциях')}.</div>
+    ${running ? `<div class="rank-meta" style="text-align:center;margin-bottom:6px">${esc(rsfProg.text)} Новые старты добавятся сами.</div>` : ''}
     <div class="rank-meta" style="line-height:1.6;text-align:center">${list}</div>
-    ${rsfFailedNote()}
+    ${running ? '' : rsfFailedNote()}
     ${undated ? `<div class="rank-meta" style="margin-top:8px;color:var(--danger)">У ${undated} ${plural(undated, 'старта', 'стартов', 'стартов')} не удалось прочитать дату — на графике их не будет.
       <details><summary style="cursor:pointer">Показать сырые данные</summary>
       <textarea readonly style="width:100%;height:150px;font-size:11px;margin-top:8px">${esc(JSON.stringify(sample, null, 1).slice(0, 2500))}</textarea></details></div>` : ''}`;
+}
+
+async function pickRsfPerson(key) {
+  rsfPersonKey = key;
+  applyRsfImport(key);          // сразу показываем то, что уже загружено
+  await rsfSearchDone;          // остальные дистанции дозагружаются в фоне
+  if (rsfPersonKey === key) { applyRsfImport(key); await flushStarts(); }
 }
 
 /* ============================================================
