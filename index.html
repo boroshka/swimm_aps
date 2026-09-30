@@ -510,8 +510,66 @@
   .st-delta { font-size: 11.5px; font-weight: 800; color: var(--soft); }
   .st-delta.good { color: #7ED9B0; }
   .st-pb { background: var(--rose); color: var(--dark); border-radius: 999px; padding: 1px 7px; font-size: 10.5px; font-weight: 800; }
+  .st-pool-seg button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .st-pool-seg em { font-style: normal; font-size: 11.5px; font-weight: 700; opacity: 0.6; }
+  .st-pool-seg button.on em { opacity: 0.75; }
+  .st-bulk { background: var(--surface); border: 1px dashed rgba(190, 205, 235, 0.25); border-radius: 20px; padding: 14px 16px; margin-bottom: 12px; color: var(--soft); font-size: 13px; line-height: 1.5; }
+  .st-bulk-row { display: flex; gap: 8px; margin-top: 10px; }
+  .st-bulk-row button { flex: 1; padding: 10px; border-radius: 14px; background: var(--surface-2); color: var(--ink); font-weight: 700; font-size: 13.5px; border: 1px solid var(--line); }
+  .st-pool-edit { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 6px 4px; color: var(--soft); font-size: 12.5px; font-weight: 600; }
+  .st-pool-edit .seg { flex: none; }
   .st-anim .st-card { animation: stIn 0.35s ease both; }
   @keyframes stIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- Итог тренировки ---------- */
+  .done-overlay {
+    position: fixed; inset: 0; z-index: 70; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    background: radial-gradient(120% 70% at 50% -10%, #14203A 0%, #0A0F1B 55%, #080B12 100%);
+    opacity: 0; transition: opacity 0.35s ease;
+  }
+  .done-overlay.show { opacity: 1; }
+  .done-wrap { max-width: 480px; margin: 0 auto; padding: calc(22px + env(safe-area-inset-top, 0px)) 20px calc(28px + env(safe-area-inset-bottom, 0px)); }
+  .done-card {
+    background: linear-gradient(170deg, #161C2A, #0E121B); border: 1px solid var(--line);
+    border-radius: 28px; padding: 22px 20px; margin-bottom: 14px;
+    opacity: 0; transform: translateY(22px) scale(0.98);
+  }
+  .done-overlay.show .done-card { animation: doneIn 0.65s cubic-bezier(0.22, 0.8, 0.3, 1) forwards; }
+  .done-overlay.show .done-card:nth-child(2) { animation-delay: 0.45s; }
+  .done-overlay.show .done-actions { animation: doneIn 0.6s ease 0.8s both; }
+  @keyframes doneIn { to { opacity: 1; transform: none; } }
+  .done-eyebrow { color: var(--rose); font-size: 12.5px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; margin-bottom: 10px; }
+  .done-label { color: var(--soft); font-size: 15px; font-weight: 700; }
+  .done-big { display: flex; align-items: baseline; gap: 8px; margin: 2px 0 4px; }
+  .done-big b { font-size: 68px; line-height: 1; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; background: linear-gradient(120deg, #EEF2FA 20%, #9DBBFF 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .done-big span { font-size: 26px; font-weight: 800; color: var(--blue); }
+  .done-exact { color: var(--soft); font-size: 14px; font-weight: 600; }
+  .done-stats { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr) minmax(0, 1.25fr); gap: 8px; margin-top: 18px; }
+  .done-stat { background: var(--surface-2); border-radius: 16px; padding: 11px 10px; min-width: 0; }
+  .done-stat b { display: block; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .done-stat span { display: block; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 2px; }
+  .done-title { font-size: 25px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
+  .river-box {
+    position: relative; aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 0%, #182744 0%, #0B1222 70%);
+    border: 1px solid var(--line);
+  }
+  .river-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; animation: fadeIn 0.8s ease both; }
+  .river-box canvas:active { cursor: grabbing; }
+  .river-box svg.river-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .river-ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 13.5px; font-weight: 600; }
+  .river-ph i { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(108,155,255,0.25); border-top-color: var(--blue); margin: 0 auto 10px; animation: spin 0.9s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .river-tag { position: absolute; left: 12px; bottom: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; pointer-events: none; }
+  .river-tag b, .river-tag span { white-space: nowrap; background: rgba(10, 14, 24, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .river-tag span { color: #B9C4DA; }
+  .river-tag b { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .river-hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: rgba(238,242,250,0.5); font-size: 11.5px; font-weight: 600; pointer-events: none; animation: hintOut 0.6s ease 5s forwards; }
+  @keyframes hintOut { to { opacity: 0; } }
+  .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
+  .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
+  .done-actions { padding-top: 4px; }
 
   /* ---------- Modal ---------- */
   .modal-overlay {
@@ -758,6 +816,10 @@
 </div>
 
 <!-- ===== Своя тренировка ===== -->
+<div id="doneOverlay" class="done-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="doneTitle">
+  <div class="done-wrap" id="doneWrap"></div>
+</div>
+
 <div id="manualWorkoutOverlay" class="modal-overlay hidden">
   <div class="modal-card">
     <h2 id="mwTitle">Своя тренировка</h2>
@@ -1009,6 +1071,41 @@ function rsfPickDate(r) {
   for (const v of c) { const iso = rsfToIso(v); if (iso) return iso; }
   return '';
 }
+// Длина бассейна (25 или 50) из строки рейтинга; 0 — не удалось определить
+function rsfPoolOf(r) {
+  const val = (k, v) => {
+    if (v == null || typeof v === 'object') return 0;
+    if (typeof v === 'boolean') {
+      if (!v) return 0;
+      return /short|кор/i.test(k) ? 25 : /long|длин/i.test(k) ? 50 : 0;
+    }
+    if (typeof v === 'number') return (v === 25 || v === 50) ? v : 0;
+    const t = String(v).toLowerCase();
+    if (t.length > 24) return 0;
+    if (/(^|\D)25(\D|$)/.test(t) || /корот|short/.test(t)) return 25;
+    if (/(^|\D)50(\D|$)/.test(t) || /длин|long/.test(t)) return 50;
+    return 0;
+  };
+  const key = /pool|basin|course|бассейн/i;
+  for (const k of Object.keys(r)) {
+    if (!key.test(k) || /id$/i.test(k)) continue;
+    const v = r[k];
+    if (v && typeof v === 'object' && !Array.isArray(v)) {      // { Pool: { Length: 50 } } или { Pool: { Name: '25 м' } }
+      for (const f of Object.keys(v)) { if (/id$/i.test(f)) continue; const p = val(k + f, v[f]); if (p) return p; }
+      continue;
+    }
+    const p = val(k, v); if (p) return p;
+  }
+  for (const k of Object.keys(r)) {       // вложенные объекты вида { Pool: { Length: 50 } }
+    const o = r[k];
+    if (!o || typeof o !== 'object' || Array.isArray(o)) continue;
+    for (const f of Object.keys(o)) {
+      if (!key.test(f) || /id$/i.test(f)) continue;
+      const p = val(f, o[f]); if (p) return p;
+    }
+  }
+  return 0;
+}
 function rsfText(v) {
   if (v == null) return '';
   if (typeof v === 'string') return v;
@@ -1213,15 +1310,22 @@ function disciplineLabel(alias) {
 function applyRsfImport(key) {
   const box = $('rsfSearchResults');
   const matches = rsfSearchMatches.filter(r => personKey(r) === key);
-  const starts = matches.map(r => ({
-    id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
-    discipline: disciplineLabel(r._alias),
-    result: r.FormattedResult || rsfText(r.Result),
-    date: rsfPickDate(r) || (typeof r.Date === 'string' ? r.Date : ''),
-    tournament: rsfText(r.Tournament) || rsfText(r.Competition),
-    location: rsfText(r.Location),
-    source: 'rsf'
-  }));
+  // бассейн, который пользователь уже отметил вручную, не теряем при повторной загрузке
+  const prevPool = new Map();
+  startsCache.forEach(x => { if (x && Number(x.pool) > 0) prevPool.set(stKey(x.discipline, stDay(x), x.result), Number(x.pool)); });
+  const starts = matches.map(r => {
+    const discipline = disciplineLabel(r._alias);
+    const result = r.FormattedResult || rsfText(r.Result);
+    const date = rsfPickDate(r) || (typeof r.Date === 'string' ? r.Date : '');
+    return {
+      id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
+      discipline, result, date,
+      pool: rsfPoolOf(r) || prevPool.get(stKey(discipline, rsfToIso(date), result)) || 0,
+      tournament: rsfText(r.Tournament) || rsfText(r.Competition),
+      location: rsfText(r.Location),
+      source: 'rsf'
+    };
+  });
   startsCache = starts;
   persistStartsSoon();
   // если история уже на экране — обновляем её по мере догрузки
@@ -1234,7 +1338,11 @@ function applyRsfImport(key) {
   const list = Object.keys(byD).sort((x, y) => order.indexOf(x) - order.indexOf(y))
     .map(d => `${esc(d)} — ${byD[d]}`).join(' · ');
   const undated = matches.filter(r => !rsfToIso(rsfPickDate(r))).length;
-  const sample = matches.find(r => !rsfToIso(rsfPickDate(r)));
+  const nopool = starts.filter(x => !x.pool).length;
+  const sample = matches.find((r, i) => !rsfToIso(rsfPickDate(r)) || !starts[i].pool);
+  const probs = [];
+  if (undated) probs.push(`не прочитана дата — ${undated}`);
+  if (nopool) probs.push(`не определён бассейн — ${nopool}`);
   const nD = Object.keys(byD).length;
   const running = rsfProg.running;
   box.innerHTML = `
@@ -1242,7 +1350,7 @@ function applyRsfImport(key) {
     ${running ? `<div class="rank-meta" style="text-align:center;margin-bottom:6px">${esc(rsfProg.text)} Новые старты добавятся сами.</div>` : ''}
     <div class="rank-meta" style="line-height:1.6;text-align:center">${list}</div>
     ${running ? '' : rsfFailedNote()}
-    ${undated ? `<div class="rank-meta" style="margin-top:8px;color:var(--danger)">У ${undated} ${plural(undated, 'старта', 'стартов', 'стартов')} не удалось прочитать дату — на графике их не будет.
+    ${probs.length ? `<div class="rank-meta" style="margin-top:8px;color:var(--danger)">Не у всех стартов удалось прочитать данные: ${esc(probs.join('; '))}.${nopool ? ' Бассейн можно отметить вручную в истории стартов.' : ''}
       <details><summary style="cursor:pointer">Показать сырые данные</summary>
       <textarea readonly style="width:100%;height:150px;font-size:11px;margin-top:8px">${esc(JSON.stringify(sample, null, 1).slice(0, 2500))}</textarea></details></div>` : ''}`;
 }
@@ -1259,7 +1367,8 @@ async function pickRsfPerson(key) {
    ============================================================ */
 const ST_MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
 const ST_GOOD = '#7ED9B0';
-const stF = { period: 'all', from: '', to: '', sort: 'count', xmode: 'time', open: false, openDisc: null };
+const stF = { period: 'all', from: '', to: '', sort: 'count', open: false, openDisc: null, pool: null };
+const ST_POOL_LABEL = { 50: '50 м', 25: '25 м', 0: 'не указан' };
 const stSel = {};            // выбранная точка на графике по каждой дистанции
 let stAll = [], stBest = {}, stPrev = {}, stCards = [];
 
@@ -1293,27 +1402,46 @@ function stDateBadge(day) {
 }
 function stDateText(day) { if (!day) return '—'; const p = stParts(day); return `${p.d} ${p.mon} ${p.y}`; }
 
+// Ключ старта: дистанция + дата + результат (по нему убираем дубли и находим старт при правке бассейна)
+function stKey(disc, day, result) {
+  return [String(disc || '').trim().toLowerCase(), day || '', String(result || '').trim().replace(',', '.')].join('|');
+}
 // Собираем старты без дублей: одна дистанция + одна дата + один результат = один старт
 function stPrepare() {
   const seen = new Map();
   startsCache.forEach(s => {
     if (!s || !s.result) return;
-    const key = [String(s.discipline || '').trim().toLowerCase(), stDay(s), String(s.result).trim().replace(',', '.')].join('|');
+    const key = stKey(s.discipline, stDay(s), s.result);
     const ex = seen.get(key);
     if (!ex) seen.set(key, { ...s });
-    else ['tournament', 'location'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
+    else ['tournament', 'location', 'pool'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
   });
-  stAll = [...seen.values()].map((s, i) => ({ ...s, uid: i, discipline: s.discipline || '', day: stDay(s), sec: stParseTime(s.result) }));
+  stAll = [...seen.values()].map((s, i) => ({
+    ...s, uid: i, discipline: s.discipline || '', day: stDay(s), sec: stParseTime(s.result),
+    pool: [25, 50].includes(Number(s.pool)) ? Number(s.pool) : 0
+  }));
 
+  // Рекорды и разница с прошлым стартом считаем отдельно для каждого бассейна: 25 м и 50 м не смешиваются
   stBest = {}; stPrev = {};
-  const byD = {};
-  stAll.forEach(s => { (byD[s.discipline] = byD[s.discipline] || []).push(s); });
-  Object.entries(byD).forEach(([d, list]) => {
+  const byG = {};
+  stAll.forEach(s => { const g = s.discipline + '|' + s.pool; (byG[g] = byG[g] || []).push(s); });
+  Object.entries(byG).forEach(([g, list]) => {
     const withSec = list.filter(s => s.sec != null);
-    if (withSec.length) stBest[d] = Math.min(...withSec.map(s => s.sec));
+    if (withSec.length) stBest[g] = Math.min(...withSec.map(s => s.sec));
     const timed = withSec.filter(s => s.day).sort(stAsc);
     timed.forEach((s, i) => { if (i > 0) stPrev[s.uid] = s.sec - timed[i - 1].sec; });
   });
+}
+function stPoolCounts(useRange) {
+  const c = { 25: 0, 50: 0, 0: 0 };
+  stAll.forEach(s => { if (!useRange || stInRange(s)) c[s.pool]++; });
+  return c;
+}
+function stDefaultPool() {
+  const c = stPoolCounts(false);
+  if (c[50] >= c[25] && c[50] > 0) return 50;
+  if (c[25] > 0) return 25;
+  return c[0] > 0 ? 0 : 50;
 }
 function stAsc(a, b) { return (a.day || '').localeCompare(b.day || '') || a.uid - b.uid; }
 
@@ -1325,7 +1453,7 @@ function stInRange(s) {
 function stBuildCards() {
   const order = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.textContent);
   const byD = new Map();
-  stAll.filter(stInRange).forEach(s => {
+  stAll.filter(s => stInRange(s) && s.pool === stF.pool).forEach(s => {
     if (!byD.has(s.discipline)) byD.set(s.discipline, []);
     byD.get(s.discipline).push(s);
   });
@@ -1333,7 +1461,7 @@ function stBuildCards() {
     items.sort(stAsc);
     const timed = items.filter(s => s.sec != null && s.day);
     const best = items.some(s => s.sec != null) ? Math.min(...items.filter(s => s.sec != null).map(s => s.sec)) : null;
-    return { d, items, timed, best, last: items[items.length - 1] };
+    return { d, g: d + '|' + stF.pool, items, timed, best, last: items[items.length - 1] };
   });
   const ord = c => { const i = order.indexOf(c.d); return i < 0 ? 999 : i; };
   if (stF.sort === 'recent') cards.sort((a, b) => (b.last.day || '').localeCompare(a.last.day || '') || ord(a) - ord(b));
@@ -1375,8 +1503,11 @@ function renderStarts() {
       </div>
       <button class="btn btn-ghost" style="padding:12px" onclick="resetStFilters()">Сбросить фильтры</button>
     </div></div></div>
+    <div id="stPoolBox"></div>
     <div id="stTotal" class="st-total"></div>
     <div id="stCards"></div>`;
+  const pc = stPoolCounts(false);
+  if (stF.pool == null || (!pc[stF.pool] && (pc[25] || pc[50] || pc[0]))) stF.pool = stDefaultPool();
   $('stFrom').value = stF.from;
   $('stTo').value = stF.to;
   applyStPanel();
@@ -1436,26 +1567,35 @@ function stSparkSvg(timed) {
 
 function renderStartsView(animate) {
   stSyncControls();
+  renderPoolSeg();
   stCards = stBuildCards();
   const total = stCards.reduce((n, c) => n + c.items.length, 0);
   const filtered = stF.period !== 'all';
   const undated = stAll.filter(x => !x.day).length;
   $('stTotal').innerHTML = total
-    ? esc(`${total} ${plural(total, 'старт', 'старта', 'стартов')} на ${stCards.length} ${plural(stCards.length, 'дистанции', 'дистанциях', 'дистанциях')}${filtered ? ' за выбранный период' : ''}`)
+    ? esc(`${total} ${plural(total, 'старт', 'старта', 'стартов')} на ${stCards.length} ${plural(stCards.length, 'дистанции', 'дистанциях', 'дистанциях')} · бассейн ${ST_POOL_LABEL[stF.pool]}${filtered ? ' · выбранный период' : ''}`)
       + (undated ? ` · <span style="color:var(--danger)">без даты: ${undated}</span> <button class="link-btn" style="font-size:13px" onclick="showRegistration(true)">обновить из рейтинга</button>` : '')
     : '';
 
   const list = $('stCards');
   list.classList.toggle('st-anim', !!animate);
   if (!stCards.length) {
-    list.innerHTML = `<div class="empty">За этот период стартов нет.<br><button class="link-btn" onclick="resetStFilters()">Сбросить фильтры</button></div>`;
+    const cnt = stPoolCounts(true);
+    const others = [50, 25, 0].filter(p => p !== stF.pool && cnt[p])
+      .map(p => `<button class="link-btn" onclick="setStPool(${p})">Показать бассейн ${ST_POOL_LABEL[p]} (${cnt[p]})</button>`).join('<br>');
+    const where = stF.pool ? `В бассейне ${stF.pool} м` : 'Без указанного бассейна';
+    list.innerHTML = `<div class="empty">${where} стартов нет${(stF.from || stF.to) ? ' за выбранный период' : ''}.<br>${others}${(stF.from || stF.to) ? '<br><button class="link-btn" onclick="resetStFilters()">Сбросить даты</button>' : ''}</div>`;
     return;
   }
   if (stF.openDisc != null && !stCards.some(c => c.d === stF.openDisc)) stF.openDisc = null;
 
-  list.innerHTML = stCards.map((c, i) => {
+  const bulk = stF.pool === 0 ? `
+    <div class="st-bulk">Сайт не сообщил длину бассейна у этих стартов, поэтому они показаны отдельно от остальных. Отметьте, где они проходили (у каждого старта это можно поправить и отдельно):
+      <div class="st-bulk-row"><button onclick="setUnknownPool(25)">Все в бассейне 25 м</button><button onclick="setUnknownPool(50)">Все в бассейне 50 м</button></div>
+    </div>` : '';
+  list.innerHTML = bulk + stCards.map((c, i) => {
     const isOpen = c.d === stF.openDisc;
-    const isPb = c.best != null && c.best === stBest[c.d];
+    const isPb = c.best != null && c.best === stBest[c.g];
     const n = c.items.length;
     return `
     <div class="st-card ${isOpen ? 'open' : ''}" data-i="${i}" style="animation-delay:${Math.min(i * 40, 320)}ms">
@@ -1494,15 +1634,44 @@ function toggleStDist(i) {
     if (r.top < 8 || r.bottom > window.innerHeight - 90) window.scrollBy({ top: r.top - 16, behavior: 'smooth' });
   }, 420);
 }
-function selectStPoint(i, uid) { const c = stCards[i]; if (!c) return; stSel[c.d] = uid; fillStBody(i, false); }
-function setStX(i, mode) { stF.xmode = mode; fillStBody(i, true); }
+function renderPoolSeg() {
+  const c = stPoolCounts(true);
+  const opts = [[50, '50 м'], [25, '25 м']];
+  if (c[0] || stF.pool === 0) opts.push([0, 'Не указан']);
+  $('stPoolBox').innerHTML = `
+    <label style="margin:0 4px 6px">Бассейн</label>
+    <div class="seg st-pool-seg" style="margin-bottom:12px">${opts.map(([v, l]) =>
+      `<button class="${stF.pool === v ? 'on' : ''}" onclick="setStPool(${v})">${l}<em>${c[v]}</em></button>`).join('')}</div>`;
+}
+function setStPool(v) { stF.pool = v; renderStartsView(true); }
+// Указать бассейн одному старту (и перейти в его бассейн, чтобы было видно, куда он попал)
+function setStartPool(uid, pool) {
+  const t = stAll[uid]; if (!t || t.pool === pool) return;
+  const key = stKey(t.discipline, t.day, t.result);
+  startsCache.forEach(x => { if (x && x.result && stKey(x.discipline, stDay(x), x.result) === key) x.pool = pool; });
+  flushStarts();
+  stPrepare();
+  stF.pool = pool;
+  const fresh = stAll.find(x => stKey(x.discipline, x.day, x.result) === key);
+  if (fresh) stSel[t.discipline + '|' + pool] = fresh.uid;
+  renderStartsView(false);
+}
+// Всем стартам без указанного бассейна проставить один
+function setUnknownPool(pool) {
+  startsCache.forEach(x => { if (x && !(Number(x.pool) > 0)) x.pool = pool; });
+  flushStarts();
+  stPrepare();
+  stF.pool = pool;
+  renderStartsView(true);
+}
+function selectStPoint(i, uid) { const c = stCards[i]; if (!c) return; stSel[c.g] = uid; fillStBody(i, false); }
 
 /* ---------- Содержимое карточки ---------- */
 function fillStBody(i, animate) {
   const c = stCards[i], box = $('stBody' + i);
   if (!c || !box) return;
   const timed = c.timed;
-  const isPb = c.best != null && c.best === stBest[c.d];
+  const isPb = c.best != null && c.best === stBest[c.g];
   const diff = timed.length > 1 ? timed[timed.length - 1].sec - timed[0].sec : null;
   const n = c.items.length;
 
@@ -1515,11 +1684,11 @@ function fillStBody(i, animate) {
 
   const rows = [...c.items].sort((a, b) => stAsc(b, a)).map(s => {
     const dl = stPrev[s.uid];
-    const pb = s.sec != null && s.sec === stBest[c.d];
+    const pb = s.sec != null && s.sec === stBest[c.g];
     const title = s.tournament || s.location || 'Старт';
     const meta = s.tournament ? s.location : '';
     return `
-    <div class="st-row ${stSel[c.d] === s.uid ? 'sel' : ''}" role="button" tabindex="0" onclick="selectStPoint(${i},${s.uid})" onkeydown="if(event.key==='Enter')selectStPoint(${i},${s.uid})">
+    <div class="st-row ${stSel[c.g] === s.uid ? 'sel' : ''}" role="button" tabindex="0" onclick="selectStPoint(${i},${s.uid})" onkeydown="if(event.key==='Enter')selectStPoint(${i},${s.uid})">
       ${stDateBadge(s.day)}
       <div class="st-info">
         <div class="st-name">${esc(title)}</div>
@@ -1558,10 +1727,7 @@ function stMonotonePath(P) {
 
 function stChartHtml(c, ci, animate) {
   const pts = c.timed;
-  const seg = `<div class="seg small">
-      <button class="${stF.xmode === 'time' ? 'on' : ''}" onclick="setStX(${ci},'time')">По датам</button>
-      <button class="${stF.xmode === 'seq' ? 'on' : ''}" onclick="setStX(${ci},'seq')">Подряд</button></div>`;
-  const head = `<div class="chart-head"><h3>Улучшение результата</h3>${seg}</div>`;
+  const head = `<div class="chart-head"><h3>Улучшение результата по датам</h3></div>`;
   const n = pts.length;
   if (!n) return `<div class="st-chart">${head}<div class="empty">Нет результатов с датой — график построить не из чего.</div></div>`;
 
@@ -1572,7 +1738,7 @@ function stChartHtml(c, ci, animate) {
   const t0 = tOf(pts[0]), t1 = tOf(pts[n - 1]);
   const xs = pts.map((s, i) => {
     if (n === 1) return (x0 + x1) / 2;
-    if (stF.xmode === 'seq' || t1 === t0) return x0 + (i / (n - 1)) * (x1 - x0);
+    if (t1 === t0) return x0 + (i / (n - 1)) * (x1 - x0);   // все старты в один день — просто раскладываем
     return x0 + ((tOf(s) - t0) / (t1 - t0)) * (x1 - x0);
   });
 
@@ -1596,7 +1762,7 @@ function stChartHtml(c, ci, animate) {
   let xl = '';
   if (n === 1) {
     xl = `<text x="${xs[0].toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="10.5" font-weight="600" fill="#8590A8">${esc(tick(pts[0]))}</text>`;
-  } else if (stF.xmode === 'seq' || t1 === t0) {
+  } else if (t1 === t0) {
     const cnt = Math.min(n, 5), idx = new Set();
     for (let k = 0; k < cnt; k++) idx.add(Math.round((k * (n - 1)) / (cnt - 1)));
     xl = [...idx].map(i => `<text x="${xs[i].toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="10.5" font-weight="600" fill="#8590A8">${esc(tick(pts[i]))}</text>`).join('');
@@ -1610,9 +1776,9 @@ function stChartHtml(c, ci, animate) {
   }
 
   const pbIdx = secs.indexOf(lo);
-  let selIdx = pts.findIndex(s => s.uid === stSel[c.d]);
+  let selIdx = pts.findIndex(s => s.uid === stSel[c.g]);
   if (selIdx < 0) selIdx = n - 1;
-  stSel[c.d] = pts[selIdx].uid;
+  stSel[c.g] = pts[selIdx].uid;
 
   const line = n > 1 ? stMonotonePath(P) : '';
   const area = n > 1 ? `${line} L${P[n - 1][0].toFixed(1)},${pt + ch} L${P[0][0].toFixed(1)},${pt + ch} Z` : '';
@@ -1663,9 +1829,15 @@ function stChartHtml(c, ci, animate) {
       </div>
     </div>`;
 
+  const poolEdit = `
+    <div class="st-pool-edit"><span>Бассейн этого старта</span>
+      <div class="seg small">
+        <button class="${s.pool === 25 ? 'on' : ''}" onclick="setStartPool(${s.uid},25)">25 м</button>
+        <button class="${s.pool === 50 ? 'on' : ''}" onclick="setStartPool(${s.uid},50)">50 м</button>
+      </div></div>`;
   return `<div class="st-chart">${head}${svg}
-    <div class="st-legend"><span>Выше — быстрее</span><span><i style="background:#DDA5B4"></i>лучший результат</span></div>
-    ${detail}</div>`;
+    <div class="st-legend"><span>Выше — быстрее</span><span><i style="background:#DDA5B4"></i>лучший результат</span><span>Бассейн ${ST_POOL_LABEL[stF.pool]}</span></div>
+    ${detail}${poolEdit}</div>`;
 }
 
 /* ============================================================
@@ -2211,6 +2383,7 @@ async function startSwim() {
   if (workout.state !== 'ready') return;
   workout.state = 'active';
   workout.startedAt = Date.now();
+  loadThree().catch(() => {});      // заранее подгружаем 3D, чтобы итог появился сразу
   renderWorkout();
   await saveState('swimdemo_workout', workout);
 }
@@ -2224,6 +2397,7 @@ async function finishSwim() {
   if (workout.state !== 'active') return;
   const firstType = workout.tasks[0] ? workout.tasks[0].type : null;
   const durationMin = workout.startedAt ? Math.max(1, Math.round((Date.now() - workout.startedAt) / 60000)) : null;
+  const doneInfo = { meters: tasksMeters(workout.tasks), durationMin, tasks: workout.tasks.length, type: firstType };
   const list = [{
     id: Date.now(),
     date: toISODate(new Date()),
@@ -2237,6 +2411,431 @@ async function finishSwim() {
   workout = { state: 'idle', tasks: [], startedAt: null };
   await saveState('swimdemo_workout', workout);
   renderAll();
+  showWorkoutDone(doneInfo);
+}
+
+/* ============================================================
+   Итог тренировки: карточка «проплыл» и 3D-модель реки, которую «переплыл»
+   ============================================================ */
+// Ширины ориентировочные. Нева: самое узкое место ≈210 м, у Дворцового моста ≈350 м,
+// в среднем 400–600 м, в дельте до ≈1200 м. Ручей и речка — условные.
+const DONE_RIVERS = [
+  { w: 30,   acc: 'ручей',           gen: 'ручья',          label: 'Ручей',                     real: false },
+  { w: 100,  acc: 'небольшую речку', gen: 'небольшой речки', label: 'Небольшая речка',           real: false },
+  { w: 210,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · самое узкое место',  real: true },
+  { w: 350,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · у Дворцового моста', real: true },
+  { w: 500,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · средняя ширина',     real: true },
+  { w: 1200, acc: 'Неву',            gen: 'Невы',           label: 'Нева · в дельте',           real: true }
+];
+function pickRiver(m) {
+  let r = DONE_RIVERS[0];
+  DONE_RIVERS.forEach(x => { if (x.w <= m) r = x; });
+  return r;
+}
+const fmtInt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/\u00a0/g, '\u2009');
+function fmtDuration(min) {
+  if (!min) return '—';
+  return min >= 60 ? `${Math.floor(min / 60)} ч ${min % 60} мин` : `${min} мин`;
+}
+
+let doneScene = null;
+let doneCountRaf = 0;
+
+function loadThree() {
+  if (window.THREE) return Promise.resolve();
+  if (loadThree._p) return loadThree._p;
+  loadThree._p = new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.async = true;
+    s.onload = () => resolve();
+    s.onerror = () => reject(new Error('three.js не загрузился'));
+    document.head.appendChild(s);
+    setTimeout(() => reject(new Error('three.js: таймаут')), 15000);
+  });
+  loadThree._p.catch(() => { loadThree._p = null; });
+  return loadThree._p;
+}
+
+function showWorkoutDone({ meters, durationMin, tasks, type }) {
+  const ov = $('doneOverlay');
+  const river = meters > 0 ? pickRiver(meters) : null;
+  const cross = river ? Math.floor(meters / river.w) : 0;
+  const rem = river ? meters - cross * river.w : 0;
+  const frac = river ? (cross >= 1 ? rem / river.w : meters / river.w) : 0;
+
+  let title = '', caption = '';
+  if (river) {
+    if (cross >= 1) {
+      title = `Ты переплыл ${river.acc}${cross > 1 ? ` ${cross} ${plural(cross, 'раз', 'раза', 'раз')}` : ''}`;
+      caption = `Твой заплыв — ${fmtInt(meters)} м, а ширина реки около ${fmtInt(river.w)} м: это ${cross} ${plural(cross, 'раз', 'раза', 'раз')} от берега до берега${rem >= 5 ? ` и ещё ${fmtInt(rem)} м` : ''}.`;
+    } else {
+      const pct = Math.max(1, Math.round(frac * 100));
+      title = `Ты проплыл ${pct}% ширины ${river.gen}`;
+      caption = `Твой заплыв — ${fmtInt(meters)} м, ширина реки около ${fmtInt(river.w)} м.`;
+    }
+  }
+
+  const big = meters >= 1000 ? { v: meters / 1000, unit: 'км', dec: 1 } : { v: meters, unit: 'м', dec: 0 };
+  $('doneWrap').innerHTML = `
+    <section class="done-card">
+      <div class="done-eyebrow">Тренировка завершена</div>
+      ${meters > 0 ? `
+        <div class="done-label">Проплыл</div>
+        <div class="done-big"><b id="doneNum">${big.dec ? '0,0' : '0'}</b><span>${big.unit}</span></div>
+        <div class="done-exact">${fmtInt(meters)} м</div>` : `
+        <div class="done-label">Отличная работа!</div>
+        <div class="done-exact" style="margin-top:6px">В заданиях не указан метраж, поэтому дистанцию не посчитать.</div>`}
+      <div class="done-stats">
+        <div class="done-stat"><b>${esc(fmtDuration(durationMin))}</b><span>время</span></div>
+        <div class="done-stat"><b>${tasks}</b><span>${plural(tasks, 'задание', 'задания', 'заданий')}</span></div>
+        <div class="done-stat"><b>${esc((TYPE_LABEL[type] || '—'))}</b><span>нагрузка</span></div>
+      </div>
+    </section>
+    ${river ? `
+    <section class="done-card">
+      <div class="done-eyebrow">Это как…</div>
+      <h2 class="done-title" id="doneTitle">${esc(title)}</h2>
+      <div class="river-box" id="riverBox">
+        <div class="river-ph"><div><i></i>Строим реку…</div></div>
+        <div class="river-hint">Потяни, чтобы повернуть</div>
+        <div class="river-tag"><b>${esc(river.label)}</b><span>≈ ${fmtInt(river.w)} м</span></div>
+      </div>
+      <p class="done-cap">${esc(caption)}</p>
+      <p class="done-note">${river.real ? 'Ширина Невы приблизительная: она меняется от места к месту. ' : 'Условная река для масштаба. '}Модель схематичная.</p>
+    </section>` : ''}
+    <div class="done-actions"><button class="btn btn-rose" id="doneCloseBtn" onclick="closeWorkoutDone()">Готово</button></div>`;
+
+  ov.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  ov.scrollTop = 0;
+  requestAnimationFrame(() => ov.classList.add('show'));
+  try { tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success'); } catch (e) {}
+
+  // Число «набегает»
+  if (meters > 0) {
+    const el = $('doneNum'), t0 = performance.now(), dur = 1300;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fmt = (v) => big.dec ? v.toFixed(1).replace('.', ',') : String(Math.round(v));
+    if (reduce) el.textContent = fmt(big.v);
+    else {
+      const tick = (now) => {
+        const p = Math.min(1, (now - t0 - 250) / dur);
+        const e = p <= 0 ? 0 : 1 - Math.pow(1 - p, 3);
+        el.textContent = fmt(big.v * e);
+        if (p < 1) doneCountRaf = requestAnimationFrame(tick);
+      };
+      doneCountRaf = requestAnimationFrame(tick);
+    }
+  }
+
+  if (river) {
+    const host = $('riverBox');
+    const cfg = { crossings: cross, frac, label: river.label };
+    const fallback = () => {
+      const ph = host.querySelector('.river-ph'); if (ph) ph.remove();
+      const hint = host.querySelector('.river-hint'); if (hint) hint.remove();   // без WebGL вращать нечего
+      host.insertAdjacentHTML('afterbegin', riverFallbackSvg(cfg));
+    };
+    loadThree().then(() => {
+      if (!$('doneOverlay') || ov.classList.contains('hidden')) return;
+      try { doneScene = buildRiverScene(host, cfg); }
+      catch (e) { console.warn('3D недоступно:', e); fallback(); }
+    }).catch(fallback);
+  }
+}
+
+function closeWorkoutDone() {
+  const ov = $('doneOverlay');
+  cancelAnimationFrame(doneCountRaf);
+  if (doneScene) { doneScene.destroy(); doneScene = null; }
+  ov.classList.remove('show');
+  document.body.style.overflow = '';
+  setTimeout(() => { ov.classList.add('hidden'); $('doneWrap').innerHTML = ''; }, 350);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && $('doneOverlay') && !$('doneOverlay').classList.contains('hidden')) closeWorkoutDone();
+});
+
+// Запасной вариант без WebGL: вид сверху
+function riverFallbackSvg({ crossings, frac }) {
+  const total = crossings >= 1 ? crossings + (frac > 0 ? 1 : 0) : 1;
+  const W = 400, H = 300, top = 70, bot = 230;
+  const shown = Math.min(total, 8), dx = Math.min(44, 300 / shown), x0 = W / 2 - (shown * dx) / 2;
+  let d = '', last = null;
+  for (let i = 0; i < shown; i++) {
+    const dir = i % 2 === 0 ? 1 : -1;
+    const isPartial = crossings < 1 || (i === shown - 1 && i >= crossings && frac > 0);
+    const span = isPartial ? frac : 1;
+    const y1 = dir === 1 ? top + 8 : bot - 8;
+    const y2 = y1 + dir * span * (bot - top - 16);
+    const xa = x0 + i * dx, xb = xa + dx;
+    d += (i === 0 ? `M${xa},${y1}` : '') + ` L${xb},${y2}`;
+    last = [xb, y2];
+  }
+  return `<svg class="river-fallback" viewBox="0 0 ${W} ${H}" role="img" aria-label="Схема: маршрут поперёк реки">
+    <rect width="${W}" height="${H}" fill="#0B1222"/>
+    <rect y="0" width="${W}" height="${top}" fill="#1F3B2E"/><rect y="${bot}" width="${W}" height="${H - bot}" fill="#1F3B2E"/>
+    <rect y="${top}" width="${W}" height="${bot - top}" fill="#2A6FD6" opacity="0.85"/>
+    <path d="${d}" fill="none" stroke="#DDA5B4" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+    ${last ? `<circle cx="${last[0]}" cy="${last[1]}" r="7" fill="#DDA5B4" stroke="#6C9BFF" stroke-width="3"/>` : ''}
+  </svg>`;
+}
+
+/* ---------- 3D-сцена (three.js r128) ---------- */
+function buildRiverScene(host, cfg) {
+  const T = window.THREE;
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const canvas = document.createElement('canvas');
+  host.insertBefore(canvas, host.firstChild);
+  let renderer;
+  try {
+    renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'low-power' });
+  } catch (e) { canvas.remove(); throw e; }
+  const BG = 0x0b1222;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setClearColor(BG, 1);
+  const ph = host.querySelector('.river-ph'); if (ph) ph.remove();
+
+  const scene = new T.Scene();
+  scene.fog = new T.Fog(BG, 11, 26);
+  const camera = new T.PerspectiveCamera(40, 4 / 3, 0.1, 80);
+
+  scene.add(new T.HemisphereLight(0xcfe0ff, 0x1b2a3a, 0.95));
+  const sun = new T.DirectionalLight(0xfff1d6, 0.85);
+  sun.position.set(6, 9, 5);
+  scene.add(sun);
+
+  // --- размеры мира ---
+  const W = 5;                 // ширина реки
+  const L = 32, D = 26;        // размер земли
+  const WATER_Y = -0.15;
+  const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+
+  // --- земля с руслом ---
+  const tg = new T.PlaneGeometry(L, D, 72, 58);
+  tg.rotateX(-Math.PI / 2);
+  const tp = tg.attributes.position;
+  const colors = new Float32Array(tp.count * 3);
+  const cSand = new T.Color(0xcdbb8e), cBed = new T.Color(0x34475c), cGrass = new T.Color(0x3f7a52), cFar = new T.Color(0x2a5440), tmp = new T.Color();
+  for (let i = 0; i < tp.count; i++) {
+    const x = tp.getX(i), z = tp.getZ(i);
+    const a = Math.abs(z) - W / 2;                       // расстояние от уреза воды
+    let y = -0.85 + ss(-0.6, 0.7, a) * 1.05;
+    y += ss(0.8, 7, a) * (0.3 + 0.32 * Math.sin(x * 0.5 + z * 0.4) + 0.2 * Math.sin(x * 0.17 - z * 0.6));
+    tp.setY(i, y);
+    if (a < 0.1) tmp.copy(cBed).lerp(cSand, ss(-0.6, 0.1, a));
+    else if (a < 0.9) tmp.copy(cSand).lerp(cGrass, ss(0.1, 0.9, a));
+    else tmp.copy(cGrass).lerp(cFar, ss(1, 9, a));
+    tmp.offsetHSL(0, 0, (Math.sin(x * 2.3 + z * 1.7) * 0.015));
+    colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+  }
+  tg.setAttribute('color', new T.BufferAttribute(colors, 3));
+  tg.computeVertexNormals();
+  const terrain = new T.Mesh(tg, new T.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
+  scene.add(terrain);
+
+  // --- вода ---
+  const wg = new T.PlaneGeometry(L, W + 5, 80, 16);
+  wg.rotateX(-Math.PI / 2);
+  const wp = wg.attributes.position;
+  const wBase = new Float32Array(wp.count * 2);
+  for (let i = 0; i < wp.count; i++) { wBase[i * 2] = wp.getX(i); wBase[i * 2 + 1] = wp.getZ(i); }
+  const water = new T.Mesh(wg, new T.MeshPhongMaterial({ color: 0x2f86f2, specular: 0xa9cbff, shininess: 80, transparent: true, opacity: 0.86, flatShading: true }));
+  water.position.y = WATER_Y;
+  scene.add(water);
+
+  // --- мост (для масштаба) ---
+  const bridge = new T.Group();
+  const greyM = new T.MeshLambertMaterial({ color: 0x94a2bd, flatShading: true });
+  const bw = W + 3.4;
+  const deck = new T.Mesh(new T.BoxGeometry(1.1, 0.12, bw), greyM); deck.position.y = 0.85; bridge.add(deck);
+  [-1, 1].forEach(s => {
+    const rail = new T.Mesh(new T.BoxGeometry(0.06, 0.22, bw), greyM); rail.position.set(s * 0.5, 1.0, 0); bridge.add(rail);
+    const pil = new T.Mesh(new T.BoxGeometry(0.5, 1.75, 0.5), greyM); pil.position.set(0, 0.0, s * (W / 2 - 0.15)); bridge.add(pil);
+  });
+  bridge.position.x = 8.4;
+  scene.add(bridge);
+
+  // --- деревья ---
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const trunkM = new T.MeshLambertMaterial({ color: 0x5a4130, flatShading: true });
+  const leafMs = [0x2f6b45, 0x367a4d, 0x285c3b].map(c => new T.MeshLambertMaterial({ color: c, flatShading: true }));
+  const coneG = new T.ConeGeometry(0.42, 1.25, 6), trunkG = new T.CylinderGeometry(0.06, 0.08, 0.35, 5);
+  for (let i = 0; i < 70; i++) {
+    const x = (rnd() - 0.5) * (L - 4);
+    const side = rnd() < 0.5 ? -1 : 1;
+    const a = 1.3 + rnd() * 6.5;
+    if (Math.abs(x - 8.4) < 1.6 && a < 2.4) continue;
+    const z = side * (W / 2 + a);
+    const a2 = Math.abs(z) - W / 2;
+    const gy = -0.85 + ss(-0.6, 0.7, a2) * 1.05 + ss(0.8, 7, a2) * (0.3 + 0.32 * Math.sin(x * 0.5 + z * 0.4) + 0.2 * Math.sin(x * 0.17 - z * 0.6));
+    const tr = new T.Group();
+    const trunk = new T.Mesh(trunkG, trunkM); trunk.position.y = 0.17; tr.add(trunk);
+    const s = 0.8 + rnd() * 0.7;
+    const leaf = new T.Mesh(coneG, leafMs[i % 3]); leaf.position.y = 0.35 + 0.62 * s; leaf.scale.setScalar(s); tr.add(leaf);
+    tr.position.set(x, gy - 0.02, z);
+    scene.add(tr);
+  }
+
+  // --- маршрут ---
+  const c = cfg.crossings, frac = cfg.frac;
+  const totalCross = c >= 1 ? c + (frac > 0.02 ? 1 : 0) : 1;
+  const shown = Math.min(totalCross, 8);
+  const dxs = Math.min(1.25, 8.5 / shown);
+  const x0 = -(shown * dxs) / 2;
+  const halfW = W / 2 - 0.05;
+  const path = [];                                      // [x, z]
+  for (let i = 0; i < shown; i++) {
+    const dir = i % 2 === 0 ? 1 : -1;
+    const partial = c < 1 || (i >= c);
+    const span = partial ? Math.max(0.05, frac) : 1;
+    const zs = -dir * halfW, ze = zs + dir * span * 2 * halfW;
+    const steps = 28;
+    for (let k = (i === 0 ? 0 : 1); k <= steps; k++) {
+      const u = k / steps;
+      path.push([x0 + (i + u) * dxs + Math.sin(u * Math.PI * 2) * 0.08, zs + (ze - zs) * u]);
+    }
+  }
+  const cum = [0];
+  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
+  const pathLen = cum[cum.length - 1];
+  const posAt = (d) => {
+    d = Math.min(Math.max(d, 0), pathLen);
+    let lo = 0, hi = cum.length - 1;
+    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= d) lo = mid; else hi = mid; }
+    const seg = cum[hi] - cum[lo] || 1, u = (d - cum[lo]) / seg;
+    return [path[lo][0] + (path[hi][0] - path[lo][0]) * u, path[lo][1] + (path[hi][1] - path[lo][1]) * u, path[hi][0] - path[lo][0], path[hi][1] - path[lo][1]];
+  };
+
+  // след из точек
+  const dotTex = (() => {
+    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+    const g = cv.getContext('2d'); const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.55, 'rgba(255,255,255,0.95)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+    return new T.CanvasTexture(cv);
+  })();
+  const spacing = 0.2, nDots = Math.floor(pathLen / spacing);
+  const dotPos = new Float32Array(nDots * 3);
+  for (let i = 0; i < nDots; i++) {
+    const p = posAt(i * spacing);
+    dotPos[i * 3] = p[0]; dotPos[i * 3 + 1] = WATER_Y + 0.06; dotPos[i * 3 + 2] = p[1];
+  }
+  const dg = new T.BufferGeometry();
+  dg.setAttribute('position', new T.BufferAttribute(dotPos, 3));
+  const dots = new T.Points(dg, new T.PointsMaterial({ color: 0xf3b6c6, size: 0.34, map: dotTex, transparent: true, depthWrite: false, sizeAttenuation: true }));
+  scene.add(dots);
+
+  // метки старта и финиша
+  const pinG = new T.ConeGeometry(0.26, 0.7, 8); pinG.rotateX(Math.PI);
+  const mkPin = (col, p) => { const m = new T.Mesh(pinG, new T.MeshLambertMaterial({ color: col, flatShading: true })); m.position.set(p[0], 0.8, p[1]); scene.add(m); return m; };
+  const pStart = posAt(0), pEnd = posAt(pathLen);
+  const pinA = mkPin(0x6c9bff, pStart), pinB = mkPin(0xdda5b4, pEnd);
+
+  // пловец
+  const sw = new T.Group();
+  const bodyM = new T.MeshLambertMaterial({ color: 0xdda5b4, flatShading: true });
+  const capM = new T.MeshLambertMaterial({ color: 0x6c9bff, flatShading: true });
+  const torso = new T.Mesh(new T.CylinderGeometry(0.085, 0.07, 0.5, 10), bodyM); torso.rotation.x = Math.PI / 2; sw.add(torso);
+  const head = new T.Mesh(new T.SphereGeometry(0.095, 12, 10), capM); head.position.set(0, 0.03, 0.33); sw.add(head);
+  const armG = new T.CylinderGeometry(0.028, 0.028, 0.34, 6); armG.translate(0, 0.17, 0);
+  const armL = new T.Mesh(armG, bodyM), armR = new T.Mesh(armG, bodyM);
+  const shL = new T.Group(), shR = new T.Group();
+  shL.position.set(-0.12, 0.02, 0.15); shR.position.set(0.12, 0.02, 0.15);
+  shL.add(armL); shR.add(armR); sw.add(shL, shR);
+  const legG = new T.BoxGeometry(0.06, 0.04, 0.3); legG.translate(0, 0, -0.15);
+  const legL = new T.Mesh(legG, bodyM), legR = new T.Mesh(legG, bodyM);
+  legL.position.set(-0.04, 0, -0.25); legR.position.set(0.04, 0, -0.25); sw.add(legL, legR);
+  sw.scale.setScalar(2.3);
+  scene.add(sw);
+  const ringG = new T.RingGeometry(0.2, 0.27, 28); ringG.rotateX(-Math.PI / 2);
+  const ringM = [0, 1].map(() => new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
+  const rings = ringM.map(m => { const r = new T.Mesh(ringG, m); r.position.y = WATER_Y + 0.05; scene.add(r); return r; });
+
+  // --- камера: плавное покачивание + вращение пальцем ---
+  let baseAz = 0.35, dragging = false, lastX = 0;
+  const polar = 0.88, target = new T.Vector3(0, -0.2, 0);
+  const radius = 12.2 + Math.min(2.2, shown * 0.22);
+  const place = (az) => {
+    camera.position.set(target.x + radius * Math.sin(polar) * Math.sin(az), target.y + radius * Math.cos(polar), target.z + radius * Math.sin(polar) * Math.cos(az));
+    camera.lookAt(target);
+  };
+  const onDown = (e) => { dragging = true; lastX = e.clientX; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} };
+  const onMove = (e) => { if (!dragging) return; baseAz -= (e.clientX - lastX) * 0.008; baseAz = Math.max(-1.3, Math.min(1.3, baseAz)); lastX = e.clientX; };
+  const onUp = () => { dragging = false; };
+  canvas.addEventListener('pointerdown', onDown);
+  canvas.addEventListener('pointermove', onMove);
+  canvas.addEventListener('pointerup', onUp);
+  canvas.addEventListener('pointercancel', onUp);
+
+  const resize = () => {
+    const w = host.clientWidth || 320, h = host.clientHeight || 240;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    render();
+  };
+  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
+  if (ro) ro.observe(host);
+
+  // --- анимация ---
+  let raf = 0, dead = false, t0 = performance.now(), prev = t0;
+  const speed = 2.3, hold = 1.3, start = 0.6;
+  const cycle = start + pathLen / speed + hold;
+  function frame(now) {
+    if (dead) return;
+    raf = requestAnimationFrame(frame);
+    if (document.hidden) return;
+    const t = (now - t0) / 1000;
+    prev = now;
+    const ct = reduce ? cycle - hold * 0.5 : t % cycle;
+    const dist = Math.min(pathLen, Math.max(0, ct - start) * speed);
+    const sp = posAt(dist);
+    const bob = Math.sin(t * 5) * 0.012;
+    sw.position.set(sp[0], WATER_Y + 0.08 + bob, sp[1]);
+    sw.rotation.y = Math.atan2(sp[2], sp[3]);
+    const moving = dist < pathLen;
+    const sr = moving ? 7 : 1.2;
+    shL.rotation.x = t * sr; shR.rotation.x = t * sr + Math.PI;
+    legL.rotation.x = Math.sin(t * 14) * 0.25; legR.rotation.x = -Math.sin(t * 14) * 0.25;
+    dg.setDrawRange(0, Math.min(nDots, Math.floor(dist / spacing)));
+    rings.forEach((r, i) => {
+      const k = ((t * 0.9 + i * 0.5) % 1);
+      r.position.x = sp[0]; r.position.z = sp[1];
+      r.scale.setScalar(1.4 + k * 3.4); ringM[i].opacity = (1 - k) * 0.28;
+    });
+    pinA.position.y = 0.85 + Math.sin(t * 2.4) * 0.07; pinB.position.y = 0.85 + Math.sin(t * 2.4 + 1.5) * 0.07;
+    // волны
+    for (let i = 0; i < wp.count; i++) {
+      const x = wBase[i * 2], z = wBase[i * 2 + 1];
+      wp.setY(i, Math.sin(x * 1.25 - t * 1.7) * 0.045 + Math.cos(z * 2.0 + t * 1.3 + x * 0.3) * 0.035);
+    }
+    wp.needsUpdate = true; wg.computeVertexNormals();
+    const az = dragging ? baseAz : baseAz + (reduce ? 0 : Math.sin(t * 0.3) * 0.22);
+    place(az);
+    renderer.render(scene, camera);
+  }
+  function render() { place(baseAz); renderer.render(scene, camera); }
+  resize();
+  raf = requestAnimationFrame(frame);
+
+  return {
+    destroy() {
+      dead = true; cancelAnimationFrame(raf);
+      if (ro) ro.disconnect();
+      canvas.removeEventListener('pointerdown', onDown); canvas.removeEventListener('pointermove', onMove);
+      canvas.removeEventListener('pointerup', onUp); canvas.removeEventListener('pointercancel', onUp);
+      scene.traverse(o => {
+        if (o.geometry) o.geometry.dispose();
+        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
+      });
+      dotTex.dispose();
+      renderer.dispose();
+      try { renderer.forceContextLoss(); } catch (_) {}
+      canvas.remove();
+    }
+  };
 }
 
 /* ============================================================
@@ -2475,6 +3074,7 @@ document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click'
   initCompFilters();
   profile = await loadState('swimdemo_profile', null);
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
+  if (workout.state === 'active') loadThree().catch(() => {});
   historyCache = await loadState('swimdemo_history', []);
   startsCache = await loadState('swimdemo_starts', []);
   if (!profile) showRegistration(false);
