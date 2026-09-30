@@ -795,14 +795,14 @@ function personKey(row) {
   return p.PersonID || [p.LastName, p.FirstName, p.BirthYear].join('|');
 }
 
-async function rsfQuery(name, genderID) {
+async function rsfQuery(name, genderID, alias) {
   const body = {
     sort: [{ field: 'Result', dir: 'asc' }],
     page: 1, pageSize: 200, skip: 0, take: 200,
     sportID: RATING_SPORT_ID,
     genderID: genderID,
     unique: false,
-    options: JSON.stringify({ minAge: null, maxAge: null, alias: null, pool: null, locations: [], name: name })
+    options: JSON.stringify({ minAge: null, maxAge: null, alias: alias, pool: null, locations: [], name: name })
   };
   const resp = await fetch(RATING_WORKER_URL, {
     method: 'POST',
@@ -820,7 +820,7 @@ async function rsfQuery(name, genderID) {
     // Например, сам прокси вернул {"error": "..."} вместо списка результатов
     throw new Error('Ответ не список: ' + JSON.stringify(data).slice(0, 300));
   }
-  return data;
+  return data.map(r => ({ ...r, _alias: alias }));
 }
 
 async function searchRsfPerson() {
@@ -832,30 +832,43 @@ async function searchRsfPerson() {
   const last = $('regLast').value.trim();
   const first = $('regFirst').value.trim();
   const fullName = `${last} ${first}`.trim();
-  box.innerHTML = `<div class="rank-status">Ищем в рейтинге…</div>`;
 
-  // Пробуем несколько вариантов запроса по очереди, потому что сайт может
-  // не находить ничего без указания пола или с полным ФИО целиком.
-  const attempts = [
-    () => rsfQuery(fullName, null),
-    () => Promise.all([rsfQuery(fullName, 1), rsfQuery(fullName, 2)]).then(([a, b]) => [...(a || []), ...(b || [])]),
-    () => Promise.all([rsfQuery(last, 1), rsfQuery(last, 2)]).then(([a, b]) => [...(a || []), ...(b || [])]),
-  ];
+  // "Любая дисциплина" на сайте не работает — сервер требует конкретную
+  // дисциплину в каждом запросе. Поэтому перебираем все дисциплины и оба
+  // пола, объединяя результаты.
+  const aliases = [...document.querySelectorAll('#rkDiscipline option')].map(o => o.value);
+  const total = aliases.length * 2;
+  let done = 0;
+  box.innerHTML = `<div class="rank-status">Проверяем дисциплины: 0 из ${total}…</div>`;
 
-  let rows = [];
-  let lastRaw = null;
-  for (const attempt of attempts) {
-    try {
-      rows = await attempt();
-      if (Array.isArray(rows) && rows.length) break;
-    } catch (e) {
-      lastRaw = String(e);
-    }
+  const runOne = (name, alias, gender) =>
+    rsfQuery(name, gender, alias)
+      .catch(() => [])
+      .finally(() => {
+        done++;
+        box.innerHTML = `<div class="rank-status">Проверяем дисциплины: ${done} из ${total}…</div>`;
+      });
+
+  const jobs = [];
+  aliases.forEach(alias => {
+    jobs.push(runOne(fullName, alias, 1));
+    jobs.push(runOne(fullName, alias, 2));
+  });
+  let rows = (await Promise.all(jobs)).flat();
+
+  if (!rows.length && last !== fullName) {
+    done = 0;
+    box.innerHTML = `<div class="rank-status">По полному имени не нашли, пробуем по одной фамилии: 0 из ${total}…</div>`;
+    const jobs2 = [];
+    aliases.forEach(alias => {
+      jobs2.push(runOne(last, alias, 1));
+      jobs2.push(runOne(last, alias, 2));
+    });
+    rows = (await Promise.all(jobs2)).flat();
   }
 
-  if (!Array.isArray(rows) || !rows.length) {
-    box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>
-      ${lastRaw ? `<div class="rank-meta" style="margin-top:6px">Техническая деталь: ${esc(lastRaw)}</div>` : ''}`;
+  if (!rows.length) {
+    box.innerHTML = `<div class="rank-status">Никого с таким именем в рейтинге не нашлось. Можно продолжить регистрацию без импорта.</div>`;
     return;
   }
   rsfSearchMatches = rows;
@@ -885,13 +898,18 @@ function renderRsfCandidates(rows) {
     <button type="button" class="link-btn" onclick="$('rsfSearchResults').innerHTML=''">Не я / пропустить</button>`;
 }
 
+function disciplineLabel(alias) {
+  const opt = document.querySelector(`#rkDiscipline option[value="${alias}"]`);
+  return opt ? opt.textContent : (alias || '');
+}
+
 async function pickRsfPerson(key) {
   const matches = rsfSearchMatches.filter(r => personKey(r) === key);
   const starts = matches.map(r => {
     const p = (r.Persons && r.Persons[0]) || {};
     return {
-      id: r.ParticipantID || (key + '-' + r.Date + '-' + r.Result),
-      discipline: r.Discipline || r.DisciplineName || r.Event || '',
+      id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
+      discipline: disciplineLabel(r._alias),
       result: r.FormattedResult || '',
       date: r.Date || '',
       tournament: r.Tournament || '',
