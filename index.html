@@ -600,6 +600,7 @@
   .confetti i { position: absolute; top: -10px; width: 7px; height: 12px; border-radius: 2px; opacity: 0; animation: confFall linear forwards; }
   @keyframes confFall { 0% { opacity: 1; transform: translate(0, 0) rotate(0deg); } 100% { opacity: 0; transform: translate(24px, 320px) rotate(540deg); } }
   .done-card.is-done { border-color: rgba(126, 217, 176, 0.35); }
+  .map-attr { position: absolute; right: 8px; bottom: 6px; font-size: 9.5px; font-weight: 600; color: rgba(238, 242, 250, 0.55); text-shadow: 0 0 3px #0A0E18, 0 0 3px #0A0E18; pointer-events: none; z-index: 2; }
   .map-note { position: absolute; left: 10px; right: 10px; top: 10px; background: rgba(10, 14, 24, 0.85); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #B9C4DA; line-height: 1.4; text-align: center; }
   .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
   .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
@@ -2639,7 +2640,7 @@ function showWorkoutDone({ meters, durationMin, tasks, type, eyebrow: headEyebro
       <div class="route-bar" aria-hidden="true"><i style="width:${Math.min(100, ratio * 100).toFixed(1)}%"></i></div>
       <div class="route-bar-lbl"><span>0</span><span>${esc(fmtDist(route.len))}</span></div>
       <p class="done-cap">${esc(caption)}</p>
-      <p class="done-note">Маршрут — прямая между берегами, а не трек настоящего заплыва. Карта © OpenStreetMap, © CARTO.</p>
+      <p class="done-note">Маршрут — прямая между берегами, а не трек настоящего заплыва. Карта: Esri, HERE, Garmin, © OpenStreetMap contributors.</p>
     </section>` : ''}
     <div class="done-actions"><button class="btn btn-rose" id="doneCloseBtn" onclick="closeWorkoutDone()">Готово</button></div>`;
 
@@ -2690,7 +2691,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('doneOverlay') && !$('doneOverlay').classList.contains('hidden')) closeWorkoutDone();
 });
 
-/* ---------- Карта: плитки OpenStreetMap (стиль CARTO Dark) + маршрут поверх ---------- */
+/* ---------- Карта: тёмные плитки Esri (без ключа) + запасные плитки OpenStreetMap, маршрут поверх ---------- */
 function renderRouteMap(host, route, progress, done, reduce) {
   let raf = 0, ro = null, dead = false, confettiTimer = 0, noteTimer = 0;
   const TILE = 256;
@@ -2709,7 +2710,7 @@ function renderRouteMap(host, route, progress, done, reduce) {
 
     // масштаб: весь маршрут целиком с полями
     let z = 3;
-    for (let t = 16; t >= 3; t--) {
+    for (let t = 15; t >= 3; t--) {
       const w = route.pts.map(p => toWorld(p[0], p[1], t));
       const xs = w.map(p => p[0]), ys = w.map(p => p[1]);
       if (Math.max(...xs) - Math.min(...xs) <= W * 0.62 && Math.max(...ys) - Math.min(...ys) <= H * 0.52) { z = t; break; }
@@ -2720,33 +2721,43 @@ function renderRouteMap(host, route, progress, done, reduce) {
     const ox = cx - W / 2, oy = cy - H / 2;                  // мировые координаты левого верхнего угла
     const px = (p) => [p[0] - ox, p[1] - oy];
 
-    // плитки
+    // плитки: Esri Dark Gray (основа + подписи). CARTO с конца августа 2026 требует ключ и отдаёт заглушку «API KEY REQUIRED»
     let tilesOk = 0;
-    const retina = (window.devicePixelRatio || 1) > 1.25 ? '@2x' : '';
     const n = Math.pow(2, z);
     const layer = document.createElement('div');
     layer.className = 'map-tiles';
+    const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
     for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
       for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
         if (ty < 0 || ty >= n) continue;
-        const img = new Image();
         const wx = ((tx % n) + n) % n;
-        img.alt = ''; img.draggable = false;
-        img.style.cssText = `left:${(tx * TILE - ox).toFixed(1)}px;top:${(ty * TILE - oy).toFixed(1)}px`;
-        img.onload = () => { tilesOk++; };
-        // основной сервер — тёмная карта CARTO; если он недоступен, пробуем OpenStreetMap (затемняем фильтром)
-        img.onerror = () => {
-          if (!img.dataset.alt) {
-            img.dataset.alt = '1';
-            img.style.filter = 'invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8) contrast(0.95)';
-            img.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
-          } else img.style.display = 'none';
+        const pos = `left:${(tx * TILE - ox).toFixed(1)}px;top:${(ty * TILE - oy).toFixed(1)}px`;
+        const base = new Image();
+        base.alt = ''; base.draggable = false; base.style.cssText = pos;
+        base.onload = () => { tilesOk++; };
+        // если Esri недоступен — запасной вариант: OpenStreetMap, затемнённый фильтром
+        base.onerror = () => {
+          if (!base.dataset.alt) {
+            base.dataset.alt = '1';
+            base.style.filter = 'invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8) contrast(0.95)';
+            attr.textContent = '© OpenStreetMap contributors';
+            base.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
+          } else base.style.display = 'none';
         };
-        img.src = `https://${'abcd'[(tx + ty) & 3]}.basemaps.cartocdn.com/dark_all/${z}/${wx}/${ty}${retina}.png`;
-        layer.appendChild(img);
+        base.src = `${ESRI}World_Dark_Gray_Base/MapServer/tile/${z}/${ty}/${wx}`;
+        layer.appendChild(base);
+        const lab = new Image();                       // названия городов и водоёмов
+        lab.alt = ''; lab.draggable = false; lab.style.cssText = pos;
+        lab.onerror = () => { lab.style.display = 'none'; };
+        lab.src = `${ESRI}World_Dark_Gray_Reference/MapServer/tile/${z}/${ty}/${wx}`;
+        layer.appendChild(lab);
       }
     }
+    const attr = document.createElement('div');
+    attr.className = 'map-attr';
+    attr.textContent = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
     host.appendChild(layer);
+    host.appendChild(attr);
 
     // маршрут
     const P = wpts.map(px);
