@@ -555,7 +555,7 @@
 
   /* ---------- Итог тренировки ---------- */
   .done-overlay {
-    position: fixed; inset: 0; z-index: 70; overflow-y: auto; -webkit-overflow-scrolling: touch;
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 70; overflow-y: auto; -webkit-overflow-scrolling: touch;
     background: radial-gradient(120% 70% at 50% -10%, #14203A 0%, #0A0F1B 55%, #080B12 100%);
     opacity: 0; transition: opacity 0.35s ease;
   }
@@ -582,13 +582,13 @@
   .done-stat span { display: block; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 2px; }
   .done-title { font-size: 25px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
   .map-box {
-    position: relative; aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden;
+    position: relative; height: 0; padding-bottom: 75%; border-radius: 22px; overflow: hidden;   /* 4:3 без aspect-ratio */
     background: radial-gradient(120% 90% at 50% 0%, #162036 0%, #0B1222 75%); border: 1px solid var(--line);
   }
-  .map-tiles { position: absolute; inset: 0; overflow: hidden; animation: fadeIn 0.7s ease both; }
+  .map-tiles { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; animation: fadeIn 0.7s ease both; }
   .map-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; -webkit-user-drag: none; }
-  .map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .map-ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 13.5px; font-weight: 600; text-align: center; }
+  .map-svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+  .map-ph { position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: grid; place-items: center; color: var(--soft); font-size: 13.5px; font-weight: 600; text-align: center; }
   .map-ph i { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(108,155,255,0.25); border-top-color: var(--blue); margin: 0 auto 10px; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -596,10 +596,11 @@
   .route-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #6C9BFF, #DDA5B4); transform-origin: left; animation: barGrow 1.6s cubic-bezier(0.22, 0.8, 0.3, 1) 0.9s both; }
   @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .route-bar-lbl { display: flex; justify-content: space-between; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 5px; }
-  .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .confetti { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; pointer-events: none; }
   .confetti i { position: absolute; top: -10px; width: 7px; height: 12px; border-radius: 2px; opacity: 0; animation: confFall linear forwards; }
-  @keyframes confFall { 0% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 24px 320px; rotate: 540deg; } }
+  @keyframes confFall { 0% { opacity: 1; transform: translate(0, 0) rotate(0deg); } 100% { opacity: 0; transform: translate(24px, 320px) rotate(540deg); } }
   .done-card.is-done { border-color: rgba(126, 217, 176, 0.35); }
+  .map-note { position: absolute; left: 10px; right: 10px; top: 10px; background: rgba(10, 14, 24, 0.85); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #B9C4DA; line-height: 1.4; text-align: center; }
   .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
   .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
   .done-actions { padding-top: 4px; }
@@ -2564,6 +2565,13 @@ function pickRoute(m) {
   return { route, ratio: m / route.len };
 }
 
+// Ссылка на OpenStreetMap с центром на середине маршрута (на случай, если плитки в приложении не загрузились)
+function routeMapUrl(route) {
+  const a = route.pts[0], b = route.pts[route.pts.length - 1];
+  const lat = (a[0] + b[0]) / 2, lon = (a[1] + b[1]) / 2;
+  const z = Math.max(3, Math.min(15, Math.round(Math.log2(156543 * Math.cos(lat * Math.PI / 180) / (route.len / 220)))));
+  return `https://www.openstreetmap.org/?mlat=${lat.toFixed(4)}&mlon=${lon.toFixed(4)}#map=${z}/${lat.toFixed(4)}/${lon.toFixed(4)}`;
+}
 const fmtInt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/\u00a0/g, '\u2009');
 function fmtDist(m) {
   if (m < 1000) return `${fmtInt(m)} м`;
@@ -2627,6 +2635,7 @@ function showWorkoutDone({ meters, durationMin, tasks, type, eyebrow: headEyebro
       <div class="done-eyebrow">${esc(eyebrow)}</div>
       <h2 class="done-title" id="doneTitle">${esc(title)}</h2>
       <div class="map-box" id="mapBox"><div class="map-ph"><div><i></i>Загружаем карту…</div></div></div>
+      <div class="rank-links"><a class="rank-link" href="${esc(routeMapUrl(route))}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">Открыть на карте<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a></div>
       <div class="route-bar" aria-hidden="true"><i style="width:${Math.min(100, ratio * 100).toFixed(1)}%"></i></div>
       <div class="route-bar-lbl"><span>0</span><span>${esc(fmtDist(route.len))}</span></div>
       <p class="done-cap">${esc(caption)}</p>
@@ -2683,7 +2692,7 @@ document.addEventListener('keydown', (e) => {
 
 /* ---------- Карта: плитки OpenStreetMap (стиль CARTO Dark) + маршрут поверх ---------- */
 function renderRouteMap(host, route, progress, done, reduce) {
-  let raf = 0, ro = null, dead = false, confettiTimer = 0;
+  let raf = 0, ro = null, dead = false, confettiTimer = 0, noteTimer = 0;
   const TILE = 256;
   const toWorld = (lat, lon, z) => {
     const s = TILE * Math.pow(2, z), sin = Math.sin(lat * Math.PI / 180);
@@ -2692,7 +2701,10 @@ function renderRouteMap(host, route, progress, done, reduce) {
 
   function draw() {
     cancelAnimationFrame(raf);
-    const W = host.clientWidth || 320, H = host.clientHeight || 240;
+    clearTimeout(noteTimer);
+    const W = host.clientWidth || 320;
+    if (host.clientHeight < 40) host.style.height = Math.round(W * 0.75) + 'px';     // страховка, если высота не посчиталась
+    const H = host.clientHeight || Math.round(W * 0.75);
     host.innerHTML = '';
 
     // масштаб: весь маршрут целиком с полями
@@ -2709,6 +2721,7 @@ function renderRouteMap(host, route, progress, done, reduce) {
     const px = (p) => [p[0] - ox, p[1] - oy];
 
     // плитки
+    let tilesOk = 0;
     const retina = (window.devicePixelRatio || 1) > 1.25 ? '@2x' : '';
     const n = Math.pow(2, z);
     const layer = document.createElement('div');
@@ -2717,10 +2730,19 @@ function renderRouteMap(host, route, progress, done, reduce) {
       for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
         if (ty < 0 || ty >= n) continue;
         const img = new Image();
+        const wx = ((tx % n) + n) % n;
         img.alt = ''; img.draggable = false;
-        img.src = `https://${'abcd'[(tx + ty) & 3]}.basemaps.cartocdn.com/dark_all/${z}/${((tx % n) + n) % n}/${ty}${retina}.png`;
         img.style.cssText = `left:${(tx * TILE - ox).toFixed(1)}px;top:${(ty * TILE - oy).toFixed(1)}px`;
-        img.onerror = () => { img.style.display = 'none'; };
+        img.onload = () => { tilesOk++; };
+        // основной сервер — тёмная карта CARTO; если он недоступен, пробуем OpenStreetMap (затемняем фильтром)
+        img.onerror = () => {
+          if (!img.dataset.alt) {
+            img.dataset.alt = '1';
+            img.style.filter = 'invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8) contrast(0.95)';
+            img.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
+          } else img.style.display = 'none';
+        };
+        img.src = `https://${'abcd'[(tx + ty) & 3]}.basemaps.cartocdn.com/dark_all/${z}/${wx}/${ty}${retina}.png`;
         layer.appendChild(img);
       }
     }
@@ -2734,7 +2756,11 @@ function renderRouteMap(host, route, progress, done, reduce) {
     const ns = 'http://www.w3.org/2000/svg';
     const svg = document.createElementNS(ns, 'svg');
     svg.setAttribute('class', 'map-svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    svg.setAttribute('width', W); svg.setAttribute('height', H);
     const mk = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); svg.appendChild(e); return e; };
+    // лёгкая сетка: если плитки не загрузятся, схема всё равно выглядит как карта
+    for (let gx = 40; gx < W; gx += 40) mk('line', { x1: gx, y1: 0, x2: gx, y2: H, stroke: '#9DBBFF', 'stroke-opacity': 0.06 });
+    for (let gy = 40; gy < H; gy += 40) mk('line', { x1: 0, y1: gy, x2: W, y2: gy, stroke: '#9DBBFF', 'stroke-opacity': 0.06 });
     mk('line', { x1: A[0], y1: A[1], x2: B[0], y2: B[1], stroke: '#EEF2FA', 'stroke-opacity': 0.55, 'stroke-width': 3, 'stroke-dasharray': '2 7', 'stroke-linecap': 'round' });
     mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-opacity': 0.28, 'stroke-width': 11, 'stroke-linecap': 'round', id: 'mapGlow' });
     const prog = mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-width': 4.5, 'stroke-linecap': 'round' });
@@ -2754,6 +2780,15 @@ function renderRouteMap(host, route, progress, done, reduce) {
     const ring = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: 'none', stroke: '#DDA5B4', 'stroke-width': 2, 'stroke-opacity': 0.7 });
     host.appendChild(svg);
 
+    // если за 6 секунд не загрузилась ни одна плитка — честно говорим об этом
+    noteTimer = setTimeout(() => {
+      if (dead || tilesOk > 0 || host.querySelector('.map-note')) return;
+      const note = document.createElement('div');
+      note.className = 'map-note';
+      note.textContent = 'Карта не загрузилась — показана схема. Настоящую карту откройте кнопкой ниже.';
+      host.appendChild(note);
+    }, 6000);
+
     // анимация проплыва
     const t0 = performance.now(), dur = reduce ? 1 : 2200;
     const step = (now) => {
@@ -2772,16 +2807,23 @@ function renderRouteMap(host, route, progress, done, reduce) {
     raf = requestAnimationFrame(step);
   }
 
-  draw();
+  const safeDraw = () => {
+    try { draw(); }
+    catch (e) {
+      console.warn('карта:', e);
+      host.innerHTML = `<div class="map-ph"><div>Не удалось построить карту<br><small>${esc(e.message || '')}</small><br>Откройте маршрут кнопкой ниже.</div></div>`;
+    }
+  };
+  safeDraw();
   let rt = 0, lastW = host.clientWidth;
   if (typeof ResizeObserver !== 'undefined') {
     ro = new ResizeObserver(() => {
       if (host.clientWidth === lastW) return;
-      lastW = host.clientWidth; clearTimeout(rt); rt = setTimeout(draw, 150);
+      lastW = host.clientWidth; clearTimeout(rt); rt = setTimeout(safeDraw, 150);
     });
     ro.observe(host);
   }
-  return { destroy() { dead = true; cancelAnimationFrame(raf); clearTimeout(rt); if (ro) ro.disconnect(); } };
+  return { destroy() { dead = true; cancelAnimationFrame(raf); clearTimeout(rt); clearTimeout(noteTimer); if (ro) ro.disconnect(); } };
 }
 
 function confetti(host) {
@@ -2790,7 +2832,7 @@ function confetti(host) {
   box.className = 'confetti';
   for (let i = 0; i < 36; i++) {
     const s = document.createElement('i');
-    s.style.cssText = `left:${Math.random() * 100}%;background:${colors[i % colors.length]};animation-delay:${(Math.random() * 0.6).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.4).toFixed(2)}s;transform:rotate(${Math.floor(Math.random() * 360)}deg)`;
+    s.style.cssText = `left:${Math.random() * 100}%;background:${colors[i % colors.length]};animation-delay:${(Math.random() * 0.6).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.4).toFixed(2)}s`;
     box.appendChild(s);
   }
   host.appendChild(box);
