@@ -159,6 +159,10 @@
     font-size: 15px; font-weight: 800;
   }
 
+  .mw-calc { margin: -6px 2px 14px; font-size: 12.5px; font-weight: 600; color: var(--soft); line-height: 1.45; }
+  .mw-calc.ok { color: #7ED9B0; }
+  .mw-calc.warn { color: var(--rose); }
+
   /* ---------- Type pills ---------- */
   .pills {
     display: flex; gap: 10px; overflow-x: auto;
@@ -183,6 +187,21 @@
   }
   .pill.on { background: var(--blue); color: var(--dark); border-color: transparent; }
   .pill.on .ico { background: #fff; color: var(--dark); }
+  /* ---------- Тип нагрузки: сетка 2×2, всё помещается на экране ---------- */
+  .type-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .type-btn {
+    display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0;
+    padding: 12px 14px 13px 12px; border-radius: 22px; text-align: left;
+    background: var(--surface); border: 1px solid var(--line); color: var(--ink);
+    transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease;
+  }
+  .type-btn:active { transform: scale(0.98); }
+  .type-btn .ico { width: 34px; height: 34px; border-radius: 50%; background: var(--surface-2); display: grid; place-items: center; }
+  .type-btn b { display: block; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+  .type-btn small { display: block; font-size: 12px; font-weight: 600; color: var(--soft); margin-top: 2px; }
+  .type-btn.on { background: var(--blue); color: var(--dark); border-color: transparent; }
+  .type-btn.on .ico { background: #fff; color: var(--dark); }
+  .type-btn.on small { color: rgba(10, 14, 24, 0.62); }
   svg.i { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
   /* ---------- Workout cards (with corner cut-out badge) ---------- */
@@ -387,7 +406,20 @@
   .rank-meta { font-size: 12.5px; color: var(--soft); margin-top: 2px; }
   .rank-result { flex: none; text-align: right; }
   .rank-time { font-size: 16px; font-weight: 800; }
-  .rank-date { font-size: 11.5px; color: var(--soft); }
+  .rank-date { font-size: 11.5px; color: var(--soft); white-space: nowrap; }
+  .rank-row.has-extra { flex-wrap: wrap; row-gap: 0; }
+  .rank-extra { flex: 0 0 100%; padding-left: 42px; margin-top: 2px; min-width: 0; }
+  .rank-event { font-size: 12.5px; color: var(--ink); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .rank-aqua { font-size: 11.5px; color: var(--soft); font-weight: 600; margin-top: 2px; }
+  .rank-links { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .rank-link {
+    display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
+    background: rgba(108, 155, 255, 0.14); color: var(--blue); font-size: 11.5px; font-weight: 700; text-decoration: none;
+  }
+  .rank-link svg { width: 12px; height: 12px; }
+  .rank-note { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; margin-bottom: 10px; color: var(--soft); font-size: 12.5px; line-height: 1.5; }
+  .rank-note a { color: var(--blue); font-weight: 700; text-decoration: none; }
+  .rank-note textarea { width: 100%; height: 130px; font-size: 11px; margin-top: 8px; }
   .rank-status { text-align: center; color: var(--soft); font-size: 14px; padding: 30px 10px; font-weight: 600; }
   .rank-status.err { color: var(--danger); }
   .filter-toggle { display: flex; gap: 8px; }
@@ -549,24 +581,25 @@
   .done-stat b { display: block; font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .done-stat span { display: block; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 2px; }
   .done-title { font-size: 25px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
-  .river-box {
+  .map-box {
     position: relative; aspect-ratio: 4 / 3; border-radius: 22px; overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 0%, #182744 0%, #0B1222 70%);
-    border: 1px solid var(--line);
+    background: radial-gradient(120% 90% at 50% 0%, #162036 0%, #0B1222 75%); border: 1px solid var(--line);
   }
-  .river-box canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; animation: fadeIn 0.8s ease both; }
-  .river-box canvas:active { cursor: grabbing; }
-  .river-box svg.river-fallback { position: absolute; inset: 0; width: 100%; height: 100%; }
-  .river-ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 13.5px; font-weight: 600; }
-  .river-ph i { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(108,155,255,0.25); border-top-color: var(--blue); margin: 0 auto 10px; animation: spin 0.9s linear infinite; }
+  .map-tiles { position: absolute; inset: 0; overflow: hidden; animation: fadeIn 0.7s ease both; }
+  .map-tiles img { position: absolute; width: 256px; height: 256px; max-width: none; user-select: none; -webkit-user-drag: none; }
+  .map-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .map-ph { position: absolute; inset: 0; display: grid; place-items: center; color: var(--soft); font-size: 13.5px; font-weight: 600; text-align: center; }
+  .map-ph i { display: block; width: 30px; height: 30px; border-radius: 50%; border: 3px solid rgba(108,155,255,0.25); border-top-color: var(--blue); margin: 0 auto 10px; animation: spin 0.9s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-  .river-tag { position: absolute; left: 12px; bottom: 12px; right: 12px; display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; pointer-events: none; }
-  .river-tag b, .river-tag span { white-space: nowrap; background: rgba(10, 14, 24, 0.72); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
-  .river-tag span { color: #B9C4DA; }
-  .river-tag b { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-  .river-hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; color: rgba(238,242,250,0.5); font-size: 11.5px; font-weight: 600; pointer-events: none; animation: hintOut 0.6s ease 5s forwards; }
-  @keyframes hintOut { to { opacity: 0; } }
+  .route-bar { height: 8px; border-radius: 4px; background: var(--surface-2); margin-top: 14px; overflow: hidden; }
+  .route-bar i { display: block; height: 100%; border-radius: 4px; background: linear-gradient(90deg, #6C9BFF, #DDA5B4); transform-origin: left; animation: barGrow 1.6s cubic-bezier(0.22, 0.8, 0.3, 1) 0.9s both; }
+  @keyframes barGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  .route-bar-lbl { display: flex; justify-content: space-between; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 5px; }
+  .confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .confetti i { position: absolute; top: -10px; width: 7px; height: 12px; border-radius: 2px; opacity: 0; animation: confFall linear forwards; }
+  @keyframes confFall { 0% { opacity: 1; translate: 0 0; } 100% { opacity: 0; translate: 24px 320px; rotate: 540deg; } }
+  .done-card.is-done { border-color: rgba(126, 217, 176, 0.35); }
   .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
   .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
   .done-actions { padding-top: 4px; }
@@ -645,14 +678,6 @@
 
     <!-- ===== Тренировка ===== -->
     <div id="trainTab" class="tabcontent">
-      <div class="top">
-        <div class="avatar" id="avatar"></div>
-        <div>
-          <span class="hello-s" id="helloName"></span>
-          <span class="hello-b">Соберём тренировку?</span>
-        </div>
-      </div>
-
       <div class="hero">
         <div>
           <div class="hero-label">Эта неделя</div>
@@ -667,7 +692,7 @@
 
       <div id="genBox">
         <h2 class="section-title" style="margin-top:0">Тип нагрузки</h2>
-        <div class="pills" id="typePills"></div>
+        <div class="type-grid" id="typePills"></div>
         <div style="margin-top:14px">
           <button class="btn" onclick="generate()">Сгенерировать тренировку</button>
         </div>
@@ -834,7 +859,10 @@
       <option value="distance">Стайерская</option>
     </select>
     <label for="mwTasks">Задания (каждое с новой строки)</label>
-    <textarea id="mwTasks" rows="5" placeholder="10×100м вольный стиль, отдых 15 сек"></textarea>
+    <textarea id="mwTasks" rows="5" placeholder="10×100м вольный стиль, отдых 15 сек" oninput="updateMwCalc()"></textarea>
+    <div id="mwCalc" class="mw-calc"></div>
+    <label for="mwDistance">Дистанция, м (необязательно)</label>
+    <input type="number" id="mwDistance" inputmode="numeric" placeholder="Если метраж не виден в заданиях" oninput="updateMwCalc()">
     <label for="mwDuration">Длительность, мин (необязательно)</label>
     <input type="number" id="mwDuration" inputmode="numeric" placeholder="Например: 45">
     <div class="btn-row">
@@ -1086,6 +1114,11 @@ function rsfPoolOf(r) {
     if (/(^|\D)50(\D|$)/.test(t) || /длин|long/.test(t)) return 50;
     return 0;
   };
+  // дисциплина на сайте подписана как «вольный стиль 50 м (бассейн 25 м)»
+  for (const k of Object.keys(r)) {
+    const v = r[k];
+    if (typeof v === 'string' && v.length <= 160) { const m = v.match(/бассейн\s*(25|50)\s*м/i); if (m) return Number(m[1]); }
+  }
   const key = /pool|basin|course|бассейн/i;
   for (const k of Object.keys(r)) {
     if (!key.test(k) || /id$/i.test(k)) continue;
@@ -1105,6 +1138,52 @@ function rsfPoolOf(r) {
     }
   }
   return 0;
+}
+// ---- Ссылки на сайт ФВВСР: страница соревнования и итоговый протокол ----
+const RSF_BASE = 'https://rsf.lsport.net';
+const RSF_CALENDAR_URL = RSF_BASE + '/Page/d8b5a17e-25b5-4e50-b8e7-32c8d91fea7c';
+const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Возвращает пути относительно RSF_BASE. Ищем идентификаторы в строке результата по названиям полей.
+function rsfLinkPaths(r) {
+  const out = { evUrl: '', prUrl: '' };
+  const ids = { event: '', tournament: '', document: '' };
+  const isG = (v) => typeof v === 'string' && GUID_RE.test(v);
+  const consider = (key, v) => {
+    if (!isG(v)) return;
+    if (/(document|protocol|file)/i.test(key)) { if (!ids.document) ids.document = v; }
+    else if (/tournament/i.test(key)) { if (!ids.tournament) ids.tournament = v; }
+    else if (/(event|calendar|competition|meeting)/i.test(key)) { if (!ids.event) ids.event = v; }
+  };
+  Object.keys(r).forEach(k => {
+    const v = r[k];
+    if (typeof v === 'string') {
+      const m = v.match(/^https?:\/\/rsf\.lsport\.net(\/.*)$/i);          // сервер уже прислал готовую ссылку
+      if (m) { if (/\/Document\//i.test(m[1])) out.prUrl = out.prUrl || m[1]; else if (/\/Event\//i.test(m[1])) out.evUrl = out.evUrl || m[1]; return; }
+      if (/id$/i.test(k) || /^(tournament|event|calendar|competition|document|protocol)$/i.test(k)) consider(k, v);
+    } else if (v && typeof v === 'object' && !Array.isArray(v) && /^(tournament|event|calendar|competition)$/i.test(k)) {
+      Object.keys(v).forEach(f => { if (/^(id|guid|tournamentid|eventid|calendarid|competitionid)$/i.test(f)) consider(k + 'ID', v[f]); });
+    }
+  });
+  if (!out.evUrl && ids.event) out.evUrl = `/Event/Info/${ids.event}?typeID=10`;
+  if (!out.prUrl && (ids.document || ids.tournament)) out.prUrl = `/Tournament/Document/${ids.document || ids.tournament}`;
+  return out;
+}
+// Очки (AQUA), если сервер их прислал
+function rsfPoints(r) {
+  for (const k of Object.keys(r)) {
+    if (!/(aqua|points?|score)$/i.test(k)) continue;
+    const n = Number(r[k]);
+    if (Number.isFinite(n) && n > 0 && n < 3000) return Math.round(n);
+  }
+  return 0;
+}
+function openExt(e, url) {
+  try { if (tg && tg.openLink) { e.preventDefault(); tg.openLink(url); return false; } } catch (err) {}
+  return true;      // вне Telegram — обычная ссылка в новой вкладке
+}
+function rsfLinkChip(label, path) {
+  const url = RSF_BASE + path;
+  return `<a class="rank-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">${esc(label)}<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
 }
 function rsfText(v) {
   if (v == null) return '';
@@ -1323,6 +1402,7 @@ function applyRsfImport(key) {
       pool: rsfPoolOf(r) || prevPool.get(stKey(discipline, rsfToIso(date), result)) || 0,
       tournament: rsfText(r.Tournament) || rsfText(r.Competition),
       location: rsfText(r.Location),
+      ...rsfLinkPaths(r),
       source: 'rsf'
     };
   });
@@ -1414,7 +1494,7 @@ function stPrepare() {
     const key = stKey(s.discipline, stDay(s), s.result);
     const ex = seen.get(key);
     if (!ex) seen.set(key, { ...s });
-    else ['tournament', 'location', 'pool'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
+    else ['tournament', 'location', 'pool', 'evUrl', 'prUrl'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
   });
   stAll = [...seen.values()].map((s, i) => ({
     ...s, uid: i, discipline: s.discipline || '', day: stDay(s), sec: stParseTime(s.result),
@@ -1829,6 +1909,8 @@ function stChartHtml(c, ci, animate) {
       </div>
     </div>`;
 
+  const linkChips = [s.prUrl && rsfLinkChip('Протокол', s.prUrl), s.evUrl && rsfLinkChip('О соревновании', s.evUrl)].filter(Boolean);
+  const links = linkChips.length ? `<div class="rank-links" style="margin:0 6px 12px">${linkChips.join('')}</div>` : '';
   const poolEdit = `
     <div class="st-pool-edit"><span>Бассейн этого старта</span>
       <div class="seg small">
@@ -1837,7 +1919,7 @@ function stChartHtml(c, ci, animate) {
       </div></div>`;
   return `<div class="st-chart">${head}${svg}
     <div class="st-legend"><span>Выше — быстрее</span><span><i style="background:#DDA5B4"></i>лучший результат</span><span>Бассейн ${ST_POOL_LABEL[stF.pool]}</span></div>
-    ${detail}${poolEdit}</div>`;
+    ${detail}${links}${poolEdit}</div>`;
 }
 
 /* ============================================================
@@ -2011,12 +2093,20 @@ function renderRating(rows) {
     box.innerHTML = `<div class="rank-status">По этим фильтрам ничего не найдено.</div>`;
     return;
   }
-  box.innerHTML = rows.map((r, i) => {
+  let withLinks = 0;
+  const list = rows.map((r, i) => {
     const p = (r.Persons && r.Persons[0]) || {};
     const region = (p.City && p.City.RegionTiny) || '';
-    const dateStr = r.Date ? new Date(r.Date).toLocaleDateString('ru-RU') : '';
+    const day = rsfPickDate(r);
+    const dateStr = day ? stDateText(day) : '';
+    const comp = rsfText(r.Tournament) || rsfText(r.Competition);
+    const place = rsfText(r.Location);
+    const pts = rsfPoints(r);
+    const L = rsfLinkPaths(r);
+    const chips = [L.prUrl && rsfLinkChip('Протокол', L.prUrl), L.evUrl && rsfLinkChip('О соревновании', L.evUrl)].filter(Boolean);
+    if (chips.length) withLinks++;
     return `
-    <div class="rank-row">
+    <div class="rank-row ${comp || place || chips.length ? 'has-extra' : ''}" style="align-items:flex-start">
       <div class="rank-num">${i + 1}</div>
       <div class="rank-info">
         <div class="rank-name">${esc((p.LastName || '') + ' ' + (p.FirstName || ''))}</div>
@@ -2025,9 +2115,27 @@ function renderRating(rows) {
       <div class="rank-result">
         <div class="rank-time">${esc(r.FormattedResult || '—')}</div>
         <div class="rank-date">${esc(dateStr)}</div>
+        ${pts ? `<div class="rank-aqua">${pts} очк.</div>` : ''}
       </div>
+      ${comp || place || chips.length ? `<div class="rank-extra">
+        ${comp || place ? `<div class="rank-event">${esc([comp, place].filter(Boolean).join(' · '))}</div>` : ''}
+        ${chips.length ? `<div class="rank-links">${chips.join('')}</div>` : ''}
+      </div>` : ''}
     </div>`;
   }).join('');
+
+  const missingDate = rows.some(r => !rsfPickDate(r));
+  let note;
+  if (withLinks) {
+    note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный документ на сайте ФВВСР, в нём время каждого участника.</div>`;
+  } else {
+    note = `<div class="rank-note">Сервер не прислал ссылок на протоколы. Проверить результат можно в <a href="${RSF_CALENDAR_URL}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">календаре ФВВСР</a>: найдите соревнование по названию и дате. Если вы хотите, чтобы ссылки появились, пришлите в чат текст ниже.
+      <textarea readonly>${esc(JSON.stringify(rows[0], null, 1).slice(0, 2500))}</textarea></div>`;
+  }
+  if (missingDate && withLinks) {
+    note += `<div class="rank-note">У части результатов не удалось прочитать дату.<textarea readonly>${esc(JSON.stringify(rows.find(r => !rsfPickDate(r)), null, 1).slice(0, 2000))}</textarea></div>`;
+  }
+  box.innerHTML = note + list;
 }
 
 const tg = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
@@ -2125,22 +2233,32 @@ function svgIcon(path) { return `<svg class="i" viewBox="0 0 24 24">${path}</svg
 
 // «N×Mм» считается как N*M, отдельные «Nм» — как есть
 function parseTaskMeters(text) {
+  text = String(text || '').replace(/\u00a0/g, ' ');
+  const NUM = '(\\d+(?:[.,]\\d+)?)';
+  // км / километр…, м / метр…, а также латиницей km, m (слово «мин» не считается)
+  const UNIT = '(км|километр[а-яё]*|km|м|метр[а-яё]*|m)(?![а-яёa-z])';
+  const toNum = (v) => parseFloat(String(v).replace(',', '.'));
+  const toM = (v, unit) => /^(к|k)/i.test(unit) ? toNum(v) * 1000 : toNum(v);
   let total = 0;
-  const multRe = /(\d+)\s*×\s*(\d+)\s*м(?![а-яё])/gi;
+  // 10×100 м, 10x100, 10х100, 4 * 200 метров, 8×50
+  const multRe = new RegExp('(\\d+)\\s*(?:[×xхXХ*]|по)\\s*' + NUM + '(?:\\s*' + UNIT + ')?', 'gi');
+  const rest = text.replace(multRe, (all, reps, len, unit) => {
+    if (unit) total += parseInt(reps, 10) * toM(len, unit);
+    else if (toNum(len) >= 25 && toNum(len) <= 1500) total += parseInt(reps, 10) * toNum(len);   // «10×100» без единиц — метры
+    else return all;
+    return ' ';
+  });
+  // «прогрессия по 12.5 м», «каждые по 25 м» — это отметки, а не проплытое расстояние
+  const cleaned = rest.replace(new RegExp('по\\s*' + NUM + '\\s*' + UNIT, 'gi'), ' ');
+  const singleRe = new RegExp(NUM + '\\s*' + UNIT, 'gi');
   let m;
-  while ((m = multRe.exec(text)) !== null) {
-    total += parseInt(m[1], 10) * parseInt(m[2], 10);
-  }
-  const withoutMult = text.replace(multRe, ' ');
-  const singleRe = /(\d+)\s*м(?![а-яё])/gi;
-  let m2;
-  while ((m2 = singleRe.exec(withoutMult)) !== null) {
-    total += parseInt(m2[1], 10);
-  }
-  return total;
+  while ((m = singleRe.exec(cleaned)) !== null) total += toM(m[1], m[2]);
+  return Math.round(total);
 }
 function tasksMeters(tasks) { return tasks.reduce((s, t) => s + parseTaskMeters(typeof t === 'string' ? t : t.text), 0); }
-function volumeSum(list) { return list.reduce((sum, h) => sum + tasksMeters(h.tasks), 0); }
+// Метраж тренировки: если дистанция указана вручную — она, иначе считаем по заданиям
+function entryMeters(h) { const o = Number(h.meters); return o > 0 ? o : tasksMeters(h.tasks); }
+function volumeSum(list) { return list.reduce((sum, h) => sum + entryMeters(h), 0); }
 function kmText(m) {
   return (m / 1000).toFixed(1).replace(/\.0$/, '').replace('.', ',');
 }
@@ -2291,18 +2409,18 @@ function setChartMode(m) {
 /* ============================================================
    Рендер: тренировка
    ============================================================ */
+const TYPE_HINT = { aerobic: 'Ровный темп', anaerobic: 'Интервалы', sprint: 'Быстро и коротко', distance: 'Длинные отрезки' };
 function renderTypePills() {
   $('typePills').innerHTML = TYPE_ORDER.map(t => `
-    <button class="pill ${t === selectedType ? 'on' : ''}" onclick="selectType('${t}')">
-      <span class="ico">${svgIcon(TYPE_ICON[t])}</span>${TYPE_LABEL[t]}
+    <button class="type-btn ${t === selectedType ? 'on' : ''}" onclick="selectType('${t}')" aria-pressed="${t === selectedType}">
+      <span class="ico">${svgIcon(TYPE_ICON[t])}</span>
+      <span><b>${TYPE_LABEL[t]}</b><small>${TYPE_HINT[t] || ''}</small></span>
     </button>`).join('');
 }
 function selectType(t) { selectedType = t; renderTypePills(); }
 
 function renderHome() {
   if (!profile) return;
-  $('helloName').textContent = `Привет, ${profile.firstName}`;
-  $('avatar').textContent = (profile.firstName[0] || '•').toUpperCase();
   const snap = weekSnapshot();
   const big = snap.vol >= 1000 ? `${kmText(snap.vol)}<small>км</small>` : `${snap.vol}<small>м</small>`;
   $('heroVol').innerHTML = big;
@@ -2383,7 +2501,6 @@ async function startSwim() {
   if (workout.state !== 'ready') return;
   workout.state = 'active';
   workout.startedAt = Date.now();
-  loadThree().catch(() => {});      // заранее подгружаем 3D, чтобы итог появился сразу
   renderWorkout();
   await saveState('swimdemo_workout', workout);
 }
@@ -2415,94 +2532,105 @@ async function finishSwim() {
 }
 
 /* ============================================================
-   Итог тренировки: карточка «проплыл» и 3D-модель реки, которую «переплыл»
+   Итог тренировки: карточка «проплыл» и маршрут на настоящей карте
    ============================================================ */
-// Ширины ориентировочные. Нева: самое узкое место ≈210 м, у Дворцового моста ≈350 м,
-// в среднем 400–600 м, в дельте до ≈1200 м. Ручей и речка — условные.
-const DONE_RIVERS = [
-  { w: 30,   acc: 'ручей',           gen: 'ручья',          label: 'Ручей',                     real: false },
-  { w: 100,  acc: 'небольшую речку', gen: 'небольшой речки', label: 'Небольшая речка',           real: false },
-  { w: 210,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · самое узкое место',  real: true },
-  { w: 350,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · у Дворцового моста', real: true },
-  { w: 500,  acc: 'Неву',            gen: 'Невы',           label: 'Нева · средняя ширина',     real: true },
-  { w: 1200, acc: 'Неву',            gen: 'Невы',           label: 'Нева · в дельте',           real: true }
+// Маршруты — прямые между двумя берегами (координаты мысов и пляжей из открытых источников).
+// Длина считается по координатам. Чтобы добавить свой маршрут, впишите две точки [широта, долгота].
+const SWIM_ROUTES = [
+  { id: 'alcatraz', label: 'Алькатрас → Сан-Франциско', win: 'Ты доплыл от Алькатраса до Сан-Франциско',
+    from: 'о. Алькатрас', to: 'Сан-Франциско', pts: [[37.8267, -122.4230], [37.8076, -122.4235]] },
+  { id: 'messina', label: 'Мессинский пролив', win: 'Ты переплыл Мессинский пролив',
+    from: 'Сицилия', to: 'Калабрия', pts: [[38.2655, 15.6495], [38.2345, 15.6385]] },
+  { id: 'geneva', label: 'Женевское озеро', win: 'Ты переплыл Женевское озеро',
+    from: 'Лозанна', to: 'Эвиан', pts: [[46.5067, 6.6272], [46.4033, 6.5917]] },
+  { id: 'gibraltar', label: 'Гибралтарский пролив', win: 'Ты переплыл Гибралтарский пролив',
+    from: 'Европа', to: 'Африка', pts: [[36.0000, -5.6000], [35.91028, -5.48167]] },
+  { id: 'channel', label: 'Ла-Манш', win: 'Ты переплыл Ла-Манш',
+    from: 'Англия', to: 'Франция', pts: [[51.1150, 1.3050], [50.8688, 1.5845]] }
 ];
-function pickRiver(m) {
-  let r = DONE_RIVERS[0];
-  DONE_RIVERS.forEach(x => { if (x.w <= m) r = x; });
-  return r;
+function geoDist(a, b) {
+  const R = 6371008.8, r = Math.PI / 180, dLat = (b[0] - a[0]) * r, dLon = (b[1] - a[1]) * r;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(a[0] * r) * Math.cos(b[0] * r) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
 }
+SWIM_ROUTES.forEach(r => { r.len = r.pts.slice(1).reduce((s, p, i) => s + geoDist(r.pts[i], p), 0); });
+
+// Какой маршрут показать: почти доплыл до следующего (≥75%) — он; иначе самый длинный из пройденных
+function pickRoute(m) {
+  const list = [...SWIM_ROUTES].sort((a, b) => a.len - b.len);
+  const lower = list.filter(r => r.len <= m).pop();
+  const upper = list.find(r => r.len > m);
+  const route = (upper && m / upper.len >= 0.75) ? upper : (lower || upper);
+  return { route, ratio: m / route.len };
+}
+
 const fmtInt = (n) => Math.round(n).toLocaleString('ru-RU').replace(/\u00a0/g, '\u2009');
+function fmtDist(m) {
+  if (m < 1000) return `${fmtInt(m)} м`;
+  return `${(m / 1000).toFixed(1).replace('.', ',')} км`;
+}
 function fmtDuration(min) {
   if (!min) return '—';
   return min >= 60 ? `${Math.floor(min / 60)} ч ${min % 60} мин` : `${min} мин`;
 }
 
-let doneScene = null;
+let doneMap = null;
 let doneCountRaf = 0;
 
-function loadThree() {
-  if (window.THREE) return Promise.resolve();
-  if (loadThree._p) return loadThree._p;
-  loadThree._p = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
-    s.async = true;
-    s.onload = () => resolve();
-    s.onerror = () => reject(new Error('three.js не загрузился'));
-    document.head.appendChild(s);
-    setTimeout(() => reject(new Error('three.js: таймаут')), 15000);
-  });
-  loadThree._p.catch(() => { loadThree._p = null; });
-  return loadThree._p;
-}
-
-function showWorkoutDone({ meters, durationMin, tasks, type }) {
+function showWorkoutDone({ meters, durationMin, tasks, type, eyebrow: headEyebrow, entryId }) {
   const ov = $('doneOverlay');
-  const river = meters > 0 ? pickRiver(meters) : null;
-  const cross = river ? Math.floor(meters / river.w) : 0;
-  const rem = river ? meters - cross * river.w : 0;
-  const frac = river ? (cross >= 1 ? rem / river.w : meters / river.w) : 0;
+  const pk = meters > 0 ? pickRoute(meters) : null;
+  const route = pk && pk.route, ratio = pk ? pk.ratio : 0;
+  const done = !!route && ratio >= 1;
+  const almost = !!route && !done && ratio >= 0.75;
+  const left = route ? Math.max(0, route.len - meters) : 0;
+  const extra = done ? meters - route.len : 0;
 
-  let title = '', caption = '';
-  if (river) {
-    if (cross >= 1) {
-      title = `Ты переплыл ${river.acc}${cross > 1 ? ` ${cross} ${plural(cross, 'раз', 'раза', 'раз')}` : ''}`;
-      caption = `Твой заплыв — ${fmtInt(meters)} м, а ширина реки около ${fmtInt(river.w)} м: это ${cross} ${plural(cross, 'раз', 'раза', 'раз')} от берега до берега${rem >= 5 ? ` и ещё ${fmtInt(rem)} м` : ''}.`;
+  let eyebrow = '', title = '', caption = '';
+  if (route) {
+    if (done) {
+      eyebrow = 'Цель достигнута';
+      title = `Поздравляем! ${route.win}`;
+      caption = `Маршрут «${route.label}» — около ${fmtDist(route.len)} по прямой. Ты проплыл ${fmtDist(meters)}${extra >= 100 ? `, это ещё на ${fmtDist(extra)} больше` : ''}.`;
+    } else if (almost) {
+      eyebrow = 'Совсем немного';
+      title = 'Чуть-чуть не хватило!';
+      caption = `До конца маршрута «${route.label}» не хватило всего ${fmtDist(left)}. В следующий раз доплывёшь!`;
     } else {
-      const pct = Math.max(1, Math.round(frac * 100));
-      title = `Ты проплыл ${pct}% ширины ${river.gen}`;
-      caption = `Твой заплыв — ${fmtInt(meters)} м, ширина реки около ${fmtInt(river.w)} м.`;
+      eyebrow = 'Твой маршрут';
+      title = `Ты проплыл ${Math.max(1, Math.round(ratio * 100))}% пути`;
+      caption = `Маршрут «${route.label}» — около ${fmtDist(route.len)}. Осталось ещё ${fmtDist(left)}.`;
     }
   }
 
   const big = meters >= 1000 ? { v: meters / 1000, unit: 'км', dec: 1 } : { v: meters, unit: 'м', dec: 0 };
   $('doneWrap').innerHTML = `
     <section class="done-card">
-      <div class="done-eyebrow">Тренировка завершена</div>
+      <div class="done-eyebrow">${esc(headEyebrow || 'Тренировка завершена')}</div>
       ${meters > 0 ? `
         <div class="done-label">Проплыл</div>
         <div class="done-big"><b id="doneNum">${big.dec ? '0,0' : '0'}</b><span>${big.unit}</span></div>
         <div class="done-exact">${fmtInt(meters)} м</div>` : `
         <div class="done-label">Отличная работа!</div>
-        <div class="done-exact" style="margin-top:6px">В заданиях не указан метраж, поэтому дистанцию не посчитать.</div>`}
-      <div class="done-stats">
-        <div class="done-stat"><b>${esc(fmtDuration(durationMin))}</b><span>время</span></div>
-        <div class="done-stat"><b>${tasks}</b><span>${plural(tasks, 'задание', 'задания', 'заданий')}</span></div>
-        <div class="done-stat"><b>${esc((TYPE_LABEL[type] || '—'))}</b><span>нагрузка</span></div>
-      </div>
+        <div class="done-exact" style="margin-top:6px">В заданиях не нашли метраж, поэтому дистанцию не посчитать и маршрут не показать.</div>
+        ${entryId ? `<button class="link-btn" style="padding-left:0;margin-top:6px" onclick="fixEntryDistance(${entryId})">Указать дистанцию</button>` : ''}`}
+      ${(() => {
+        const st = [];
+        if (durationMin) st.push(`<div class="done-stat"><b>${esc(fmtDuration(durationMin))}</b><span>время</span></div>`);
+        st.push(`<div class="done-stat"><b>${tasks}</b><span>${plural(tasks, 'задание', 'задания', 'заданий')}</span></div>`);
+        if (TYPE_LABEL[type]) st.push(`<div class="done-stat"><b>${esc(TYPE_LABEL[type])}</b><span>нагрузка</span></div>`);
+        return `<div class="done-stats"${st.length < 3 ? ` style="grid-template-columns:repeat(${st.length}, minmax(0, 1fr))"` : ''}>${st.join('')}</div>`;
+      })()}
     </section>
-    ${river ? `
-    <section class="done-card">
-      <div class="done-eyebrow">Это как…</div>
+    ${route ? `
+    <section class="done-card ${done ? 'is-done' : ''}">
+      <div class="done-eyebrow">${esc(eyebrow)}</div>
       <h2 class="done-title" id="doneTitle">${esc(title)}</h2>
-      <div class="river-box" id="riverBox">
-        <div class="river-ph"><div><i></i>Строим реку…</div></div>
-        <div class="river-hint">Потяни, чтобы повернуть</div>
-        <div class="river-tag"><b>${esc(river.label)}</b><span>≈ ${fmtInt(river.w)} м</span></div>
-      </div>
+      <div class="map-box" id="mapBox"><div class="map-ph"><div><i></i>Загружаем карту…</div></div></div>
+      <div class="route-bar" aria-hidden="true"><i style="width:${Math.min(100, ratio * 100).toFixed(1)}%"></i></div>
+      <div class="route-bar-lbl"><span>0</span><span>${esc(fmtDist(route.len))}</span></div>
       <p class="done-cap">${esc(caption)}</p>
-      <p class="done-note">${river.real ? 'Ширина Невы приблизительная: она меняется от места к месту. ' : 'Условная река для масштаба. '}Модель схематичная.</p>
+      <p class="done-note">Маршрут — прямая между берегами, а не трек настоящего заплыва. Карта © OpenStreetMap, © CARTO.</p>
     </section>` : ''}
     <div class="done-actions"><button class="btn btn-rose" id="doneCloseBtn" onclick="closeWorkoutDone()">Готово</button></div>`;
 
@@ -2510,12 +2638,14 @@ function showWorkoutDone({ meters, durationMin, tasks, type }) {
   document.body.style.overflow = 'hidden';
   ov.scrollTop = 0;
   requestAnimationFrame(() => ov.classList.add('show'));
-  try { tg && tg.HapticFeedback && tg.HapticFeedback.notificationOccurred('success'); } catch (e) {}
+  try {
+    if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred(done ? 'success' : 'warning');
+  } catch (e) {}
 
   // Число «набегает»
+  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (meters > 0) {
     const el = $('doneNum'), t0 = performance.now(), dur = 1300;
-    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const fmt = (v) => big.dec ? v.toFixed(1).replace('.', ',') : String(Math.round(v));
     if (reduce) el.textContent = fmt(big.v);
     else {
@@ -2529,26 +2659,20 @@ function showWorkoutDone({ meters, durationMin, tasks, type }) {
     }
   }
 
-  if (river) {
-    const host = $('riverBox');
-    const cfg = { crossings: cross, frac, label: river.label };
-    const fallback = () => {
-      const ph = host.querySelector('.river-ph'); if (ph) ph.remove();
-      const hint = host.querySelector('.river-hint'); if (hint) hint.remove();   // без WebGL вращать нечего
-      host.insertAdjacentHTML('afterbegin', riverFallbackSvg(cfg));
-    };
-    loadThree().then(() => {
-      if (!$('doneOverlay') || ov.classList.contains('hidden')) return;
-      try { doneScene = buildRiverScene(host, cfg); }
-      catch (e) { console.warn('3D недоступно:', e); fallback(); }
-    }).catch(fallback);
+  if (route) {
+    // карту рисуем, когда карточка уже на экране (иначе у контейнера нет размеров)
+    setTimeout(() => {
+      const host = $('mapBox');
+      if (!host || ov.classList.contains('hidden')) return;
+      doneMap = renderRouteMap(host, route, Math.min(1, ratio), done, reduce);
+    }, 500);
   }
 }
 
 function closeWorkoutDone() {
   const ov = $('doneOverlay');
   cancelAnimationFrame(doneCountRaf);
-  if (doneScene) { doneScene.destroy(); doneScene = null; }
+  if (doneMap) { doneMap.destroy(); doneMap = null; }
   ov.classList.remove('show');
   document.body.style.overflow = '';
   setTimeout(() => { ov.classList.add('hidden'); $('doneWrap').innerHTML = ''; }, 350);
@@ -2557,285 +2681,120 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('doneOverlay') && !$('doneOverlay').classList.contains('hidden')) closeWorkoutDone();
 });
 
-// Запасной вариант без WebGL: вид сверху
-function riverFallbackSvg({ crossings, frac }) {
-  const total = crossings >= 1 ? crossings + (frac > 0 ? 1 : 0) : 1;
-  const W = 400, H = 300, top = 70, bot = 230;
-  const shown = Math.min(total, 8), dx = Math.min(44, 300 / shown), x0 = W / 2 - (shown * dx) / 2;
-  let d = '', last = null;
-  for (let i = 0; i < shown; i++) {
-    const dir = i % 2 === 0 ? 1 : -1;
-    const isPartial = crossings < 1 || (i === shown - 1 && i >= crossings && frac > 0);
-    const span = isPartial ? frac : 1;
-    const y1 = dir === 1 ? top + 8 : bot - 8;
-    const y2 = y1 + dir * span * (bot - top - 16);
-    const xa = x0 + i * dx, xb = xa + dx;
-    d += (i === 0 ? `M${xa},${y1}` : '') + ` L${xb},${y2}`;
-    last = [xb, y2];
+/* ---------- Карта: плитки OpenStreetMap (стиль CARTO Dark) + маршрут поверх ---------- */
+function renderRouteMap(host, route, progress, done, reduce) {
+  let raf = 0, ro = null, dead = false, confettiTimer = 0;
+  const TILE = 256;
+  const toWorld = (lat, lon, z) => {
+    const s = TILE * Math.pow(2, z), sin = Math.sin(lat * Math.PI / 180);
+    return [(lon + 180) / 360 * s, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s];
+  };
+
+  function draw() {
+    cancelAnimationFrame(raf);
+    const W = host.clientWidth || 320, H = host.clientHeight || 240;
+    host.innerHTML = '';
+
+    // масштаб: весь маршрут целиком с полями
+    let z = 3;
+    for (let t = 16; t >= 3; t--) {
+      const w = route.pts.map(p => toWorld(p[0], p[1], t));
+      const xs = w.map(p => p[0]), ys = w.map(p => p[1]);
+      if (Math.max(...xs) - Math.min(...xs) <= W * 0.62 && Math.max(...ys) - Math.min(...ys) <= H * 0.52) { z = t; break; }
+    }
+    const wpts = route.pts.map(p => toWorld(p[0], p[1], z));
+    const cx = (Math.min(...wpts.map(p => p[0])) + Math.max(...wpts.map(p => p[0]))) / 2;
+    const cy = (Math.min(...wpts.map(p => p[1])) + Math.max(...wpts.map(p => p[1]))) / 2;
+    const ox = cx - W / 2, oy = cy - H / 2;                  // мировые координаты левого верхнего угла
+    const px = (p) => [p[0] - ox, p[1] - oy];
+
+    // плитки
+    const retina = (window.devicePixelRatio || 1) > 1.25 ? '@2x' : '';
+    const n = Math.pow(2, z);
+    const layer = document.createElement('div');
+    layer.className = 'map-tiles';
+    for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
+      for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
+        if (ty < 0 || ty >= n) continue;
+        const img = new Image();
+        img.alt = ''; img.draggable = false;
+        img.src = `https://${'abcd'[(tx + ty) & 3]}.basemaps.cartocdn.com/dark_all/${z}/${((tx % n) + n) % n}/${ty}${retina}.png`;
+        img.style.cssText = `left:${(tx * TILE - ox).toFixed(1)}px;top:${(ty * TILE - oy).toFixed(1)}px`;
+        img.onerror = () => { img.style.display = 'none'; };
+        layer.appendChild(img);
+      }
+    }
+    host.appendChild(layer);
+
+    // маршрут
+    const P = wpts.map(px);
+    const A = P[0], B = P[P.length - 1];
+    const lerp = (t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
+    const end = lerp(progress);
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('class', 'map-svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    const mk = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); svg.appendChild(e); return e; };
+    mk('line', { x1: A[0], y1: A[1], x2: B[0], y2: B[1], stroke: '#EEF2FA', 'stroke-opacity': 0.55, 'stroke-width': 3, 'stroke-dasharray': '2 7', 'stroke-linecap': 'round' });
+    mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-opacity': 0.28, 'stroke-width': 11, 'stroke-linecap': 'round', id: 'mapGlow' });
+    const prog = mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-width': 4.5, 'stroke-linecap': 'round' });
+    const glow = svg.querySelector('#mapGlow');
+    // старт и финиш
+    mk('circle', { cx: A[0], cy: A[1], r: 7, fill: '#6C9BFF', stroke: '#0A0E18', 'stroke-width': 3 });
+    mk('circle', { cx: B[0], cy: B[1], r: 7, fill: done ? '#7ED9B0' : '#0A0E18', stroke: done ? '#0A0E18' : '#EEF2FA', 'stroke-width': 3 });
+    const label = (p, text, dy, anchor) => {
+      const t = mk('text', { x: Math.min(W - 8, Math.max(8, p[0])), y: Math.min(H - 8, Math.max(16, p[1] + dy)), 'text-anchor': anchor, 'font-size': 11.5, 'font-weight': 700, fill: '#EEF2FA', stroke: '#0A0E18', 'stroke-width': 3.5, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
+      t.textContent = text;
+    };
+    const aboveA = A[1] < B[1];                               // подписи уводим от линии наружу
+    label(A, route.from, aboveA ? -14 : 24, 'middle');
+    label(B, route.to, aboveA ? 24 : -14, 'middle');
+    // пловец
+    const dot = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: '#DDA5B4', stroke: '#6C9BFF', 'stroke-width': 3.5 });
+    const ring = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: 'none', stroke: '#DDA5B4', 'stroke-width': 2, 'stroke-opacity': 0.7 });
+    host.appendChild(svg);
+
+    // анимация проплыва
+    const t0 = performance.now(), dur = reduce ? 1 : 2200;
+    const step = (now) => {
+      if (dead) return;
+      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      const q = lerp(progress * e);
+      prog.setAttribute('x2', q[0]); prog.setAttribute('y2', q[1]);
+      glow.setAttribute('x2', q[0]); glow.setAttribute('y2', q[1]);
+      dot.setAttribute('cx', q[0]); dot.setAttribute('cy', q[1]);
+      ring.setAttribute('cx', q[0]); ring.setAttribute('cy', q[1]);
+      const pulse = (now / 900) % 1;
+      ring.setAttribute('r', 8 + pulse * 12); ring.setAttribute('stroke-opacity', (1 - pulse) * 0.6);
+      raf = requestAnimationFrame(step);
+      if (k >= 1 && done && !confettiTimer && !reduce) { confettiTimer = 1; confetti(host); }
+    };
+    raf = requestAnimationFrame(step);
   }
-  return `<svg class="river-fallback" viewBox="0 0 ${W} ${H}" role="img" aria-label="Схема: маршрут поперёк реки">
-    <rect width="${W}" height="${H}" fill="#0B1222"/>
-    <rect y="0" width="${W}" height="${top}" fill="#1F3B2E"/><rect y="${bot}" width="${W}" height="${H - bot}" fill="#1F3B2E"/>
-    <rect y="${top}" width="${W}" height="${bot - top}" fill="#2A6FD6" opacity="0.85"/>
-    <path d="${d}" fill="none" stroke="#DDA5B4" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
-    ${last ? `<circle cx="${last[0]}" cy="${last[1]}" r="7" fill="#DDA5B4" stroke="#6C9BFF" stroke-width="3"/>` : ''}
-  </svg>`;
+
+  draw();
+  let rt = 0, lastW = host.clientWidth;
+  if (typeof ResizeObserver !== 'undefined') {
+    ro = new ResizeObserver(() => {
+      if (host.clientWidth === lastW) return;
+      lastW = host.clientWidth; clearTimeout(rt); rt = setTimeout(draw, 150);
+    });
+    ro.observe(host);
+  }
+  return { destroy() { dead = true; cancelAnimationFrame(raf); clearTimeout(rt); if (ro) ro.disconnect(); } };
 }
 
-/* ---------- 3D-сцена (three.js r128) ---------- */
-function buildRiverScene(host, cfg) {
-  const T = window.THREE;
-  const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const canvas = document.createElement('canvas');
-  host.insertBefore(canvas, host.firstChild);
-  let renderer;
-  try {
-    renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'low-power' });
-  } catch (e) { canvas.remove(); throw e; }
-  const BG = 0x0b1222;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.setClearColor(BG, 1);
-  const ph = host.querySelector('.river-ph'); if (ph) ph.remove();
-
-  const scene = new T.Scene();
-  scene.fog = new T.Fog(BG, 11, 26);
-  const camera = new T.PerspectiveCamera(40, 4 / 3, 0.1, 80);
-
-  scene.add(new T.HemisphereLight(0xcfe0ff, 0x1b2a3a, 0.95));
-  const sun = new T.DirectionalLight(0xfff1d6, 0.85);
-  sun.position.set(6, 9, 5);
-  scene.add(sun);
-
-  // --- размеры мира ---
-  const W = 5;                 // ширина реки
-  const L = 32, D = 26;        // размер земли
-  const WATER_Y = -0.15;
-  const ss = (e0, e1, x) => { const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
-
-  // --- земля с руслом ---
-  const tg = new T.PlaneGeometry(L, D, 72, 58);
-  tg.rotateX(-Math.PI / 2);
-  const tp = tg.attributes.position;
-  const colors = new Float32Array(tp.count * 3);
-  const cSand = new T.Color(0xcdbb8e), cBed = new T.Color(0x34475c), cGrass = new T.Color(0x3f7a52), cFar = new T.Color(0x2a5440), tmp = new T.Color();
-  for (let i = 0; i < tp.count; i++) {
-    const x = tp.getX(i), z = tp.getZ(i);
-    const a = Math.abs(z) - W / 2;                       // расстояние от уреза воды
-    let y = -0.85 + ss(-0.6, 0.7, a) * 1.05;
-    y += ss(0.8, 7, a) * (0.3 + 0.32 * Math.sin(x * 0.5 + z * 0.4) + 0.2 * Math.sin(x * 0.17 - z * 0.6));
-    tp.setY(i, y);
-    if (a < 0.1) tmp.copy(cBed).lerp(cSand, ss(-0.6, 0.1, a));
-    else if (a < 0.9) tmp.copy(cSand).lerp(cGrass, ss(0.1, 0.9, a));
-    else tmp.copy(cGrass).lerp(cFar, ss(1, 9, a));
-    tmp.offsetHSL(0, 0, (Math.sin(x * 2.3 + z * 1.7) * 0.015));
-    colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+function confetti(host) {
+  const colors = ['#DDA5B4', '#6C9BFF', '#7ED9B0', '#F4D58D', '#EEF2FA'];
+  const box = document.createElement('div');
+  box.className = 'confetti';
+  for (let i = 0; i < 36; i++) {
+    const s = document.createElement('i');
+    s.style.cssText = `left:${Math.random() * 100}%;background:${colors[i % colors.length]};animation-delay:${(Math.random() * 0.6).toFixed(2)}s;animation-duration:${(1.8 + Math.random() * 1.4).toFixed(2)}s;transform:rotate(${Math.floor(Math.random() * 360)}deg)`;
+    box.appendChild(s);
   }
-  tg.setAttribute('color', new T.BufferAttribute(colors, 3));
-  tg.computeVertexNormals();
-  const terrain = new T.Mesh(tg, new T.MeshLambertMaterial({ vertexColors: true, flatShading: true }));
-  scene.add(terrain);
-
-  // --- вода ---
-  const wg = new T.PlaneGeometry(L, W + 5, 80, 16);
-  wg.rotateX(-Math.PI / 2);
-  const wp = wg.attributes.position;
-  const wBase = new Float32Array(wp.count * 2);
-  for (let i = 0; i < wp.count; i++) { wBase[i * 2] = wp.getX(i); wBase[i * 2 + 1] = wp.getZ(i); }
-  const water = new T.Mesh(wg, new T.MeshPhongMaterial({ color: 0x2f86f2, specular: 0xa9cbff, shininess: 80, transparent: true, opacity: 0.86, flatShading: true }));
-  water.position.y = WATER_Y;
-  scene.add(water);
-
-  // --- мост (для масштаба) ---
-  const bridge = new T.Group();
-  const greyM = new T.MeshLambertMaterial({ color: 0x94a2bd, flatShading: true });
-  const bw = W + 3.4;
-  const deck = new T.Mesh(new T.BoxGeometry(1.1, 0.12, bw), greyM); deck.position.y = 0.85; bridge.add(deck);
-  [-1, 1].forEach(s => {
-    const rail = new T.Mesh(new T.BoxGeometry(0.06, 0.22, bw), greyM); rail.position.set(s * 0.5, 1.0, 0); bridge.add(rail);
-    const pil = new T.Mesh(new T.BoxGeometry(0.5, 1.75, 0.5), greyM); pil.position.set(0, 0.0, s * (W / 2 - 0.15)); bridge.add(pil);
-  });
-  bridge.position.x = 8.4;
-  scene.add(bridge);
-
-  // --- деревья ---
-  let seed = 7;
-  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
-  const trunkM = new T.MeshLambertMaterial({ color: 0x5a4130, flatShading: true });
-  const leafMs = [0x2f6b45, 0x367a4d, 0x285c3b].map(c => new T.MeshLambertMaterial({ color: c, flatShading: true }));
-  const coneG = new T.ConeGeometry(0.42, 1.25, 6), trunkG = new T.CylinderGeometry(0.06, 0.08, 0.35, 5);
-  for (let i = 0; i < 70; i++) {
-    const x = (rnd() - 0.5) * (L - 4);
-    const side = rnd() < 0.5 ? -1 : 1;
-    const a = 1.3 + rnd() * 6.5;
-    if (Math.abs(x - 8.4) < 1.6 && a < 2.4) continue;
-    const z = side * (W / 2 + a);
-    const a2 = Math.abs(z) - W / 2;
-    const gy = -0.85 + ss(-0.6, 0.7, a2) * 1.05 + ss(0.8, 7, a2) * (0.3 + 0.32 * Math.sin(x * 0.5 + z * 0.4) + 0.2 * Math.sin(x * 0.17 - z * 0.6));
-    const tr = new T.Group();
-    const trunk = new T.Mesh(trunkG, trunkM); trunk.position.y = 0.17; tr.add(trunk);
-    const s = 0.8 + rnd() * 0.7;
-    const leaf = new T.Mesh(coneG, leafMs[i % 3]); leaf.position.y = 0.35 + 0.62 * s; leaf.scale.setScalar(s); tr.add(leaf);
-    tr.position.set(x, gy - 0.02, z);
-    scene.add(tr);
-  }
-
-  // --- маршрут ---
-  const c = cfg.crossings, frac = cfg.frac;
-  const totalCross = c >= 1 ? c + (frac > 0.02 ? 1 : 0) : 1;
-  const shown = Math.min(totalCross, 8);
-  const dxs = Math.min(1.25, 8.5 / shown);
-  const x0 = -(shown * dxs) / 2;
-  const halfW = W / 2 - 0.05;
-  const path = [];                                      // [x, z]
-  for (let i = 0; i < shown; i++) {
-    const dir = i % 2 === 0 ? 1 : -1;
-    const partial = c < 1 || (i >= c);
-    const span = partial ? Math.max(0.05, frac) : 1;
-    const zs = -dir * halfW, ze = zs + dir * span * 2 * halfW;
-    const steps = 28;
-    for (let k = (i === 0 ? 0 : 1); k <= steps; k++) {
-      const u = k / steps;
-      path.push([x0 + (i + u) * dxs + Math.sin(u * Math.PI * 2) * 0.08, zs + (ze - zs) * u]);
-    }
-  }
-  const cum = [0];
-  for (let i = 1; i < path.length; i++) cum.push(cum[i - 1] + Math.hypot(path[i][0] - path[i - 1][0], path[i][1] - path[i - 1][1]));
-  const pathLen = cum[cum.length - 1];
-  const posAt = (d) => {
-    d = Math.min(Math.max(d, 0), pathLen);
-    let lo = 0, hi = cum.length - 1;
-    while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (cum[mid] <= d) lo = mid; else hi = mid; }
-    const seg = cum[hi] - cum[lo] || 1, u = (d - cum[lo]) / seg;
-    return [path[lo][0] + (path[hi][0] - path[lo][0]) * u, path[lo][1] + (path[hi][1] - path[lo][1]) * u, path[hi][0] - path[lo][0], path[hi][1] - path[lo][1]];
-  };
-
-  // след из точек
-  const dotTex = (() => {
-    const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-    const g = cv.getContext('2d'); const grd = g.createRadialGradient(32, 32, 2, 32, 32, 30);
-    grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.55, 'rgba(255,255,255,0.95)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
-    g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
-    return new T.CanvasTexture(cv);
-  })();
-  const spacing = 0.2, nDots = Math.floor(pathLen / spacing);
-  const dotPos = new Float32Array(nDots * 3);
-  for (let i = 0; i < nDots; i++) {
-    const p = posAt(i * spacing);
-    dotPos[i * 3] = p[0]; dotPos[i * 3 + 1] = WATER_Y + 0.06; dotPos[i * 3 + 2] = p[1];
-  }
-  const dg = new T.BufferGeometry();
-  dg.setAttribute('position', new T.BufferAttribute(dotPos, 3));
-  const dots = new T.Points(dg, new T.PointsMaterial({ color: 0xf3b6c6, size: 0.34, map: dotTex, transparent: true, depthWrite: false, sizeAttenuation: true }));
-  scene.add(dots);
-
-  // метки старта и финиша
-  const pinG = new T.ConeGeometry(0.26, 0.7, 8); pinG.rotateX(Math.PI);
-  const mkPin = (col, p) => { const m = new T.Mesh(pinG, new T.MeshLambertMaterial({ color: col, flatShading: true })); m.position.set(p[0], 0.8, p[1]); scene.add(m); return m; };
-  const pStart = posAt(0), pEnd = posAt(pathLen);
-  const pinA = mkPin(0x6c9bff, pStart), pinB = mkPin(0xdda5b4, pEnd);
-
-  // пловец
-  const sw = new T.Group();
-  const bodyM = new T.MeshLambertMaterial({ color: 0xdda5b4, flatShading: true });
-  const capM = new T.MeshLambertMaterial({ color: 0x6c9bff, flatShading: true });
-  const torso = new T.Mesh(new T.CylinderGeometry(0.085, 0.07, 0.5, 10), bodyM); torso.rotation.x = Math.PI / 2; sw.add(torso);
-  const head = new T.Mesh(new T.SphereGeometry(0.095, 12, 10), capM); head.position.set(0, 0.03, 0.33); sw.add(head);
-  const armG = new T.CylinderGeometry(0.028, 0.028, 0.34, 6); armG.translate(0, 0.17, 0);
-  const armL = new T.Mesh(armG, bodyM), armR = new T.Mesh(armG, bodyM);
-  const shL = new T.Group(), shR = new T.Group();
-  shL.position.set(-0.12, 0.02, 0.15); shR.position.set(0.12, 0.02, 0.15);
-  shL.add(armL); shR.add(armR); sw.add(shL, shR);
-  const legG = new T.BoxGeometry(0.06, 0.04, 0.3); legG.translate(0, 0, -0.15);
-  const legL = new T.Mesh(legG, bodyM), legR = new T.Mesh(legG, bodyM);
-  legL.position.set(-0.04, 0, -0.25); legR.position.set(0.04, 0, -0.25); sw.add(legL, legR);
-  sw.scale.setScalar(2.3);
-  scene.add(sw);
-  const ringG = new T.RingGeometry(0.2, 0.27, 28); ringG.rotateX(-Math.PI / 2);
-  const ringM = [0, 1].map(() => new T.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.3, depthWrite: false }));
-  const rings = ringM.map(m => { const r = new T.Mesh(ringG, m); r.position.y = WATER_Y + 0.05; scene.add(r); return r; });
-
-  // --- камера: плавное покачивание + вращение пальцем ---
-  let baseAz = 0.35, dragging = false, lastX = 0;
-  const polar = 0.88, target = new T.Vector3(0, -0.2, 0);
-  const radius = 12.2 + Math.min(2.2, shown * 0.22);
-  const place = (az) => {
-    camera.position.set(target.x + radius * Math.sin(polar) * Math.sin(az), target.y + radius * Math.cos(polar), target.z + radius * Math.sin(polar) * Math.cos(az));
-    camera.lookAt(target);
-  };
-  const onDown = (e) => { dragging = true; lastX = e.clientX; try { canvas.setPointerCapture(e.pointerId); } catch (_) {} };
-  const onMove = (e) => { if (!dragging) return; baseAz -= (e.clientX - lastX) * 0.008; baseAz = Math.max(-1.3, Math.min(1.3, baseAz)); lastX = e.clientX; };
-  const onUp = () => { dragging = false; };
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerup', onUp);
-  canvas.addEventListener('pointercancel', onUp);
-
-  const resize = () => {
-    const w = host.clientWidth || 320, h = host.clientHeight || 240;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
-    render();
-  };
-  const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(resize) : null;
-  if (ro) ro.observe(host);
-
-  // --- анимация ---
-  let raf = 0, dead = false, t0 = performance.now(), prev = t0;
-  const speed = 2.3, hold = 1.3, start = 0.6;
-  const cycle = start + pathLen / speed + hold;
-  function frame(now) {
-    if (dead) return;
-    raf = requestAnimationFrame(frame);
-    if (document.hidden) return;
-    const t = (now - t0) / 1000;
-    prev = now;
-    const ct = reduce ? cycle - hold * 0.5 : t % cycle;
-    const dist = Math.min(pathLen, Math.max(0, ct - start) * speed);
-    const sp = posAt(dist);
-    const bob = Math.sin(t * 5) * 0.012;
-    sw.position.set(sp[0], WATER_Y + 0.08 + bob, sp[1]);
-    sw.rotation.y = Math.atan2(sp[2], sp[3]);
-    const moving = dist < pathLen;
-    const sr = moving ? 7 : 1.2;
-    shL.rotation.x = t * sr; shR.rotation.x = t * sr + Math.PI;
-    legL.rotation.x = Math.sin(t * 14) * 0.25; legR.rotation.x = -Math.sin(t * 14) * 0.25;
-    dg.setDrawRange(0, Math.min(nDots, Math.floor(dist / spacing)));
-    rings.forEach((r, i) => {
-      const k = ((t * 0.9 + i * 0.5) % 1);
-      r.position.x = sp[0]; r.position.z = sp[1];
-      r.scale.setScalar(1.4 + k * 3.4); ringM[i].opacity = (1 - k) * 0.28;
-    });
-    pinA.position.y = 0.85 + Math.sin(t * 2.4) * 0.07; pinB.position.y = 0.85 + Math.sin(t * 2.4 + 1.5) * 0.07;
-    // волны
-    for (let i = 0; i < wp.count; i++) {
-      const x = wBase[i * 2], z = wBase[i * 2 + 1];
-      wp.setY(i, Math.sin(x * 1.25 - t * 1.7) * 0.045 + Math.cos(z * 2.0 + t * 1.3 + x * 0.3) * 0.035);
-    }
-    wp.needsUpdate = true; wg.computeVertexNormals();
-    const az = dragging ? baseAz : baseAz + (reduce ? 0 : Math.sin(t * 0.3) * 0.22);
-    place(az);
-    renderer.render(scene, camera);
-  }
-  function render() { place(baseAz); renderer.render(scene, camera); }
-  resize();
-  raf = requestAnimationFrame(frame);
-
-  return {
-    destroy() {
-      dead = true; cancelAnimationFrame(raf);
-      if (ro) ro.disconnect();
-      canvas.removeEventListener('pointerdown', onDown); canvas.removeEventListener('pointermove', onMove);
-      canvas.removeEventListener('pointerup', onUp); canvas.removeEventListener('pointercancel', onUp);
-      scene.traverse(o => {
-        if (o.geometry) o.geometry.dispose();
-        if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach(m => { if (m.map) m.map.dispose(); m.dispose(); });
-      });
-      dotTex.dispose();
-      renderer.dispose();
-      try { renderer.forceContextLoss(); } catch (_) {}
-      canvas.remove();
-    }
-  };
+  host.appendChild(box);
+  setTimeout(() => box.remove(), 3800);
 }
 
 /* ============================================================
@@ -2914,7 +2873,7 @@ function renderDayDetails(map) {
     return;
   }
   wrap.innerHTML = `<h2 class="section-title">${dateLabel}</h2>` + entries.map(h => {
-    const m = tasksMeters(h.tasks);
+    const m = entryMeters(h);
     const chips = [
       LEVEL_LABEL[h.level] || h.level,
       STROKE_LABEL[h.stroke] || h.stroke,
@@ -2927,6 +2886,7 @@ function renderDayDetails(map) {
       <div class="chips" style="margin-top:10px">${chips}</div>
       <ol class="wc-tasks">${h.tasks.map((t, i) => `<li><span>${i + 1}</span><span>${esc(t)}</span></li>`).join('')}</ol>
       <div class="wc-actions">
+        <button class="chip" onclick="openEntryCard(${h.id})">Карточка</button>
         <button class="chip" onclick="editHistoryEntry(${h.id})">Редактировать</button>
         <button class="chip" onclick="deleteHistoryEntry(${h.id})">Удалить</button>
       </div>
@@ -2945,6 +2905,8 @@ function openManualWorkout() {
   $('mwType').value = '';
   $('mwTasks').value = '';
   $('mwDuration').value = '';
+  $('mwDistance').value = '';
+  updateMwCalc();
 }
 function editHistoryEntry(id) {
   const h = historyCache.find(x => x.id === id);
@@ -2956,6 +2918,20 @@ function editHistoryEntry(id) {
   $('mwType').value = h.type || '';
   $('mwTasks').value = h.tasks.join('\n');
   $('mwDuration').value = h.durationMin || '';
+  $('mwDistance').value = h.meters > 0 ? h.meters : '';
+  updateMwCalc();
+}
+// Подсказка под заданиями: сколько метров засчитается в статистику
+function updateMwCalc() {
+  const el = $('mwCalc'); if (!el) return;
+  const lines = $('mwTasks').value.split('\n').map(t => t.trim()).filter(Boolean);
+  const own = parseInt($('mwDistance').value, 10);
+  const auto = lines.length ? tasksMeters(lines) : 0;
+  el.className = 'mw-calc';
+  if (own > 0) { el.classList.add('ok'); el.textContent = `В статистику пойдёт указанная дистанция: ${fmtInt(own)} м.`; }
+  else if (auto > 0) { el.classList.add('ok'); el.textContent = `Посчитали по заданиям: ${fmtInt(auto)} м.`; }
+  else if (lines.length) { el.classList.add('warn'); el.textContent = 'Метраж в заданиях не нашли. Напишите, например, «10×100 м» или «1,5 км», либо укажите дистанцию ниже, иначе тренировка не попадёт в статистику.'; }
+  else el.textContent = 'Метраж считается автоматически: «10×100 м», «400 м», «1,5 км».';
 }
 function closeManualWorkout() {
   editingHistoryId = null;
@@ -2969,19 +2945,38 @@ async function saveManualWorkout() {
   if (!date || !tasksRaw) return;
   const tasks = tasksRaw.split('\n').map(t => t.trim()).filter(Boolean);
   const durationMin = durationVal ? parseInt(durationVal, 10) : null;
+  const ownM = parseInt($('mwDistance').value, 10);
+  const meters = ownM > 0 ? ownM : null;       // вручную указанная дистанция (иначе считаем по заданиям)
 
+  const isNew = !editingHistoryId;
+  const newId = Date.now();
   let list = [...historyCache];
   if (editingHistoryId) {
     const idx = list.findIndex(x => x.id === editingHistoryId);
-    if (idx !== -1) list[idx] = { ...list[idx], date, type, tasks, durationMin };
+    if (idx !== -1) list[idx] = { ...list[idx], date, type, tasks, durationMin, meters };
   } else {
-    list.unshift({ id: Date.now(), date, type, level: profile.level, stroke: profile.stroke, tasks, durationMin });
+    list.unshift({ id: newId, date, type, level: profile.level, stroke: profile.stroke, tasks, durationMin, meters });
   }
   await saveHistory(list);
   closeManualWorkout();
   selectedDate = date;
   calendarDate = parseISO(date);
   renderAll();
+  if (isNew) openEntryCard(newId);               // карточка с итогом и маршрутом для новой тренировки
+}
+
+// Карточка «проплыл» + маршрут для любой тренировки из истории
+function openEntryCard(id) {
+  const h = historyCache.find(x => x.id === id);
+  if (!h) return;
+  showWorkoutDone({
+    meters: entryMeters(h), durationMin: h.durationMin || null, tasks: h.tasks.length, type: h.type,
+    eyebrow: `Тренировка · ${stDateText(h.date)}`, entryId: h.id
+  });
+}
+function fixEntryDistance(id) {
+  closeWorkoutDone();
+  setTimeout(() => editHistoryEntry(id), 380);
 }
 async function deleteHistoryEntry(id) {
   await saveHistory(historyCache.filter(h => h.id !== id));
@@ -3074,7 +3069,6 @@ document.querySelectorAll('.navbtn').forEach(btn => btn.addEventListener('click'
   initCompFilters();
   profile = await loadState('swimdemo_profile', null);
   workout = await loadState('swimdemo_workout', { state: 'idle', tasks: [], startedAt: null });
-  if (workout.state === 'active') loadThree().catch(() => {});
   historyCache = await loadState('swimdemo_history', []);
   startsCache = await loadState('swimdemo_starts', []);
   if (!profile) showRegistration(false);
