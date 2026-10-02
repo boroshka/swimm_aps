@@ -2005,14 +2005,65 @@ document.querySelectorAll('#rkGenderToggle button').forEach(btn => {
   });
 });
 
+// ---- Поиск в рейтинге: страницы по 100 строк, повторы при сбоях сервера, понятные ошибки ----
+const RATING_PAGE = 100;            // 500 строк за раз — слишком большой ответ, прокси чаще теряет соединение
+let RATING_RETRY_MS = 700;
+let ratingState = null;             // { base, rows, page, more }
+
+// Один запрос к прокси с таймаутом. Бросает { kind, status, raw }
+async function ratingFetchOnce(body) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 40000);
+  let resp, raw;
+  try {
+    resp = await fetch(RATING_WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json; charset=utf-8' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal
+    });
+    raw = await resp.text();
+  } catch (e) {
+    throw { kind: 'net', status: 0, raw: ctrl.signal.aborted ? 'таймаут 40 с: сервер слишком долго не отвечает' : String(e) };
+  } finally { clearTimeout(timer); }
+  if (!resp.ok) throw { kind: 'http', status: resp.status, raw };
+  let rows;
+  try { rows = JSON.parse(raw); } catch (e) { throw { kind: 'parse', status: resp.status, raw: raw.slice(0, 3000) }; }
+  if (!Array.isArray(rows)) throw { kind: 'shape', status: resp.status, raw: JSON.stringify(rows).slice(0, 3000) };
+  return rows;
+}
+// До 3 попыток: «Network connection lost» и другие 5xx обычно проходят со второго раза
+async function ratingFetchRetry(body, onRetry) {
+  let err;
+  for (let i = 1; i <= 3; i++) {
+    try { return await ratingFetchOnce(body); }
+    catch (e) {
+      err = e;
+      const retryable = e.kind === 'net' || (e.kind === 'http' && (e.status >= 500 || e.status === 429));
+      if (!retryable || i === 3) break;
+      if (onRetry) onRetry(i + 1);
+      await new Promise(r => setTimeout(r, RATING_RETRY_MS * i));
+    }
+  }
+  throw err;
+}
+function ratingErrorHtml(e, retryCall) {
+  let head;
+  if (e.kind === 'http' && e.status >= 500) head = `Сервер рейтинга ФВВСР сейчас не отвечает (ошибка ${e.status}). Обычно помогает повторить запрос через минуту.`;
+  else if (e.kind === 'net') head = 'Не получилось связаться с сервером рейтинга. Проверьте интернет и повторите запрос.';
+  else head = 'Сервер рейтинга ответил не так, как ожидалось. Технические подробности ниже.';
+  const detail = e.raw ? `<details style="margin-top:10px"><summary style="cursor:pointer;color:var(--soft);font-size:12.5px">Технические подробности</summary>
+      <textarea readonly style="width:100%;height:120px;font-size:11px;margin-top:8px">${esc(String(e.raw).slice(0, 3000))}</textarea></details>` : '';
+  return `<div class="rank-status err">${esc(head)}</div>
+    <div style="text-align:center;margin-top:10px"><button class="btn" style="max-width:260px" onclick="${retryCall}">Повторить</button></div>${detail}`;
+}
+
 async function fetchRating() {
   const box = $('ratingResults');
   if (!RATING_WORKER_URL) {
     box.innerHTML = `<div class="rank-status err">Рейтинг ещё не настроен. Нужно указать адрес прокси в переменной RATING_WORKER_URL в коде приложения.</div>`;
     return;
   }
-  box.innerHTML = `<div class="rank-status">Ищем результаты…</div>`;
-
   const options = {
     minAge: $('rkMinAge').value ? parseInt($('rkMinAge').value, 10) : null,
     maxAge: $('rkMaxAge').value ? parseInt($('rkMaxAge').value, 10) : null,
@@ -2022,45 +2073,35 @@ async function fetchRating() {
     name: $('rkName').value.trim()
   };
   if (options.pool) options.strict = true;
-
-  const body = {
-    sort: [{ field: 'Result', dir: 'asc' }],
-    page: 1, pageSize: 500, skip: 0, take: 500,
-    sportID: RATING_SPORT_ID,
-    genderID: rkGender,
-    unique: $('rkUnique').checked,
-    options: JSON.stringify(options)
+  ratingState = {
+    base: { sort: [{ field: 'Result', dir: 'asc' }], sportID: RATING_SPORT_ID, genderID: rkGender, unique: $('rkUnique').checked, options: JSON.stringify(options) },
+    rows: [], page: 0, more: false, unique: $('rkUnique').checked
   };
+  await loadRatingPage(1);
+}
 
+async function loadRatingPage(page) {
+  const st = ratingState; if (!st) return;
+  const box = $('ratingResults');
+  const first = page === 1;
+  const status = (txt) => {
+    if (first) box.innerHTML = `<div class="rank-status">${esc(txt)}</div>`;
+    else { const m = $('ratingMore'); if (m) m.innerHTML = `<div class="rank-status">${esc(txt)}</div>`; }
+  };
+  status(first ? 'Ищем результаты…' : 'Загружаем ещё…');
+  const body = { ...st.base, page, pageSize: RATING_PAGE, skip: (page - 1) * RATING_PAGE, take: RATING_PAGE };
   try {
-    const resp = await fetch(RATING_WORKER_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=utf-8' },
-      body: JSON.stringify(body)
-    });
-    const raw = await resp.text();
-    if (!resp.ok) {
-      box.innerHTML = `<div class="rank-status err">Ошибка HTTP ${resp.status}. Ответ сервера ниже — скопируйте его и пришлите в чат:</div>
-        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(raw)}</textarea>`;
-      return;
-    }
-    let rows;
-    try {
-      rows = JSON.parse(raw);
-    } catch (parseErr) {
-      box.innerHTML = `<div class="rank-status err">Сервер ответил не тем, что ожидалось. Ответ ниже — скопируйте его и пришлите в чат:</div>
-        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(raw.slice(0, 3000))}</textarea>`;
-      return;
-    }
-    if (!Array.isArray(rows)) {
-      box.innerHTML = `<div class="rank-status err">Сервер ответил не списком результатов. Ответ ниже — скопируйте его и пришлите в чат:</div>
-        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(JSON.stringify(rows).slice(0, 3000))}</textarea>`;
-      return;
-    }
-    if ($('rkUnique').checked) rows = dedupeBestPerPerson(rows);
-    renderRating(rows);
+    const rows = await ratingFetchRetry(body, (n) => status(`Сервер ответил ошибкой, пробуем ещё раз (${n} из 3)…`));
+    st.page = page;
+    st.rows = first ? rows : st.rows.concat(rows);
+    st.more = rows.length >= RATING_PAGE;                       // страница заполнена целиком — скорее всего, есть продолжение
+    const shown = st.unique ? dedupeBestPerPerson(st.rows) : st.rows;
+    renderRating(shown);
+    if (shown.length) box.insertAdjacentHTML('beforeend', `<div id="ratingMore" style="text-align:center;margin:12px 0 4px">${
+      st.more ? `<button class="btn btn-ghost" style="max-width:300px" onclick="loadRatingPage(${page + 1})">Показать ещё</button>` : ''}</div>`);
   } catch (e) {
-    box.innerHTML = `<div class="rank-status err">Не удалось связаться с прокси: ${esc(String(e))}</div>`;
+    if (first) box.innerHTML = ratingErrorHtml(e, 'fetchRating()');
+    else { const m = $('ratingMore'); if (m) m.innerHTML = ratingErrorHtml(e, `loadRatingPage(${page})`); }
   }
 }
 
@@ -2131,12 +2172,13 @@ function renderCompetitions(rows) {
   box.innerHTML = rows.map(r => `
     <div class="rank-row" style="align-items:flex-start">
       <div class="rank-info">
-        <div class="rank-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" style="color:inherit;text-decoration:none">${esc(r.title)}</a>` : esc(r.title)}</div>
+        <div class="rank-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)" style="color:inherit;text-decoration:none">${esc(r.title)}</a>` : esc(r.title)}</div>
         <div class="rank-meta">${esc(r.dates)}${r.location ? ' · ' + esc(r.location) : ''}</div>
-        ${r.results && r.results.length ? `<div class="rank-meta" style="margin-top:4px"><a href="${esc(r.results[0])}" target="_blank" style="color:var(--blue)">Результаты (PDF)</a></div>` : ''}
+        ${r.results && r.results.length ? `<div class="rank-meta" style="margin-top:4px"><a href="${esc(r.results[0])}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, true)" style="color:var(--blue)">Результаты (PDF)</a></div>` : ''}
       </div>
     </div>`).join('');
 }
+
 
 function dedupeBestPerPerson(rows) {
   // Список уже отсортирован сайтом от лучшего результата к худшему (sort: Result asc),
