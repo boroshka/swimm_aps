@@ -416,7 +416,8 @@
     display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 999px;
     background: rgba(108, 155, 255, 0.14); color: var(--blue); font-size: 11.5px; font-weight: 700; text-decoration: none;
   }
-  .rank-link svg { width: 12px; height: 12px; }
+  button.rank-link { border: none; font-family: inherit; cursor: pointer; }
+  .rank-link svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .rank-note { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; margin-bottom: 10px; color: var(--soft); font-size: 12.5px; line-height: 1.5; }
   .rank-note a { color: var(--blue); font-weight: 700; text-decoration: none; }
   .rank-note textarea { width: 100%; height: 130px; font-size: 11px; margin-top: 8px; }
@@ -1210,13 +1211,45 @@ function rsfPoints(r) {
   }
   return 0;
 }
-function openExt(e, url) {
-  try { if (tg && tg.openLink) { e.preventDefault(); tg.openLink(url); return false; } } catch (err) {}
+// Открывает ссылку. PDF (протоколы) встроенный браузер Telegram часто показывает чёрным окном,
+// поэтому для них просим Telegram открыть ссылку во внешнем браузере (Bot API 7.6+, на старых клиентах параметр игнорируется)
+function openExt(e, url, external) {
+  try {
+    if (tg && tg.openLink) {
+      e.preventDefault();
+      const opts = {};
+      if (external) opts.try_browser = (tg.platform === 'ios' || tg.platform === 'macos') ? 'safari' : 'chrome';
+      tg.openLink(url, opts);
+      return false;
+    }
+  } catch (err) {}
   return true;      // вне Telegram — обычная ссылка в новой вкладке
 }
 function rsfLinkChip(label, path) {
   const url = RSF_BASE + path;
-  return `<a class="rank-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">${esc(label)}<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
+  const pdf = /\/Document\//i.test(path);          // протокол — это PDF-файл
+  return `<a class="rank-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, ${pdf})">${esc(label)}<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
+}
+// Кнопка «Копировать»: ссылку можно вставить в любой браузер
+function rsfCopyChip(path) {
+  return `<button type="button" class="rank-link" data-url="${esc(RSF_BASE + path)}" onclick="copyLink(this)" aria-label="Копировать ссылку" title="Копировать ссылку"><svg class="i" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>`;
+}
+async function copyLink(btn) {
+  const url = btn.dataset.url;
+  let ok = false;
+  try { if (navigator.clipboard && navigator.clipboard.writeText) { await navigator.clipboard.writeText(url); ok = true; } } catch (e) {}
+  if (!ok) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = url; ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0';
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      ok = document.execCommand('copy'); ta.remove();
+    } catch (e) {}
+  }
+  if (!ok && tg && tg.showAlert) { tg.showAlert('Скопируйте ссылку и откройте её в браузере:\n' + url); return; }
+  const old = btn.innerHTML;
+  btn.textContent = ok ? 'Скопировано' : 'Не вышло';
+  setTimeout(() => { btn.innerHTML = old; }, 1600);
 }
 function rsfText(v) {
   if (v == null) return '';
@@ -1942,7 +1975,7 @@ function stChartHtml(c, ci, animate) {
       </div>
     </div>`;
 
-  const linkChips = [s.prUrl && rsfLinkChip('Протокол', s.prUrl), s.evUrl && rsfLinkChip('О соревновании', s.evUrl)].filter(Boolean);
+  const linkChips = [s.prUrl && rsfLinkChip('Протокол', s.prUrl), s.prUrl && rsfCopyChip(s.prUrl), s.evUrl && rsfLinkChip('Соревнование', s.evUrl)].filter(Boolean);
   const links = linkChips.length ? `<div class="rank-links" style="margin:0 6px 12px">${linkChips.join('')}</div>` : '';
   const poolEdit = `
     <div class="st-pool-edit"><span>Бассейн этого старта</span>
@@ -2136,7 +2169,7 @@ function renderRating(rows) {
     const place = rsfText(r.Location);
     const pts = rsfPoints(r);
     const L = rsfLinkPaths(r);
-    const chips = [L.prUrl && rsfLinkChip('Протокол', L.prUrl), L.evUrl && rsfLinkChip('О соревновании', L.evUrl)].filter(Boolean);
+    const chips = [L.prUrl && rsfLinkChip('Протокол', L.prUrl), L.prUrl && rsfCopyChip(L.prUrl), L.evUrl && rsfLinkChip('Соревнование', L.evUrl)].filter(Boolean);
     if (chips.length) withLinks++;
     return `
     <div class="rank-row ${comp || place || chips.length ? 'has-extra' : ''}" style="align-items:flex-start">
@@ -2160,7 +2193,7 @@ function renderRating(rows) {
   const missingDate = rows.some(r => !rsfPickDate(r));
   let note;
   if (withLinks) {
-    note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный документ на сайте ФВВСР, в нём время каждого участника.</div>`;
+    note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный PDF-документ на сайте ФВВСР со временем каждого участника, он откроется во внешнем браузере. Если видите пустое окно, нажмите значок копирования рядом с «Протокол» и вставьте ссылку в браузер.</div>`;
   } else {
     note = `<div class="rank-note">Сервер не прислал ссылок на протоколы. Проверить результат можно в <a href="${RSF_CALENDAR_URL}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">календаре ФВВСР</a>: найдите соревнование по названию и дате. Если вы хотите, чтобы ссылки появились, пришлите в чат текст ниже.
       <textarea readonly>${esc(JSON.stringify(rows[0], null, 1).slice(0, 2500))}</textarea></div>`;
