@@ -1060,7 +1060,7 @@ async function rsfQuery(name, genderID, alias, timeoutMs = 45000) {
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let resp, raw;
   try {
-    resp = await fetch(RATING_WORKER_URL, {
+    resp = await proxyFetch('', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(body),
@@ -1993,7 +1993,33 @@ function stChartHtml(c, ci, animate) {
    ============================================================ */
 // ЗАПОЛНИТЕ после разворачивания прокси на Cloudflare Workers:
 // например "https://rsf-proxy.ваш-логин.workers.dev"
-const RATING_WORKER_URL = "https://damp-frog-abc6.danilaboronin.workers.dev";
+// Прокси: первый — новый (с повторами и кешем, файл swim-proxy-worker.js), второй — прежний.
+// Если нового ещё нет или он не настроен, приложение само работает через прежний.
+const PROXY_URLS = [
+  "https://swim-proxy.danilaboronin.workers.dev",
+  "https://damp-frog-abc6.danilaboronin.workers.dev"
+];
+const RATING_WORKER_URL = PROXY_URLS[0];      // используется только как признак «прокси задан»
+let proxyIdx = 0;                              // какой из прокси сейчас рабочий
+async function proxyFetch(path, init) {
+  const n = PROXY_URLS.length;
+  for (let k = 0; k < n; k++) {
+    const i = (proxyIdx + k) % n, last = k === n - 1;
+    try {
+      const resp = await fetch(PROXY_URLS[i] + path, init);
+      if (!last && resp.status === 404) continue;                       // новый прокси ещё не развёрнут
+      if (!last && resp.status >= 500) {                                // новый прокси развёрнут, но не подключён к старому
+        let txt = '';
+        try { txt = await resp.clone().text(); } catch (e) { /* тело прочитать не удалось — считаем обычной ошибкой сайта */ }
+        if (/Не настроен UPSTREAM/.test(txt)) continue;
+      }
+      proxyIdx = i;
+      return resp;
+    } catch (e) {
+      if ((init && init.signal && init.signal.aborted) || last) throw e;  // отмена и последний прокси — ошибка как есть
+    }
+  }
+}
 
 const RATING_SPORT_ID = "01f02e8d-6da4-43be-9dbf-05d47ab8a58d";
 let rkGender = 1;
@@ -2005,18 +2031,42 @@ document.querySelectorAll('#rkGenderToggle button').forEach(btn => {
   });
 });
 
-// ---- Поиск в рейтинге: страницы по 100 строк, повторы при сбоях сервера, понятные ошибки ----
-const RATING_PAGE = 100;            // 500 строк за раз — слишком большой ответ, прокси чаще теряет соединение
-let RATING_RETRY_MS = 700;
-let ratingState = null;             // { base, rows, page, more }
+// ---- Поиск в рейтинге ----
+// Сервер ФВВСР отвечает медленно и иногда обрывает соединение. Поэтому:
+//  • первый запрос небольшой (50 строк), а при сбое повтор идёт ещё меньшим размером (25, потом 10): лёгкий запрос проходит чаще;
+//  • удачный ответ запоминается: повторный поиск показывается мгновенно, а свежие данные подгружаются фоном;
+//  • если сервер лежит, а сохранённый ответ есть, показываем его, а не ошибку;
+//  • во время ожидания видно, сколько секунд прошло, и поиск можно отменить.
+const RATING_SIZES = [50, 25, 10];
+let RATING_RETRY_MS = 600;
+let ratingState = null;             // { base, rows, rawCount, size, more, unique, ctrl, key }
+const RATING_CACHE_KEY = 'rating_cache_v1';
+
+function ratingCacheGet(key) {
+  try {
+    const c = JSON.parse(localStorage.getItem(RATING_CACHE_KEY) || '{}')[key];
+    return c && Date.now() - c.t < 24 * 3600 * 1000 ? c : null;
+  } catch (e) { return null; }
+}
+function ratingCacheSet(key, rows, size) {
+  try {
+    const all = JSON.parse(localStorage.getItem(RATING_CACHE_KEY) || '{}');
+    all[key] = { t: Date.now(), rows, size };
+    const keep = Object.keys(all).sort((x, y) => all[y].t - all[x].t).slice(0, 6);   // последние 6 запросов
+    const out = {}; keep.forEach(k => { out[k] = all[k]; });
+    localStorage.setItem(RATING_CACHE_KEY, JSON.stringify(out));
+  } catch (e) {}
+}
 
 // Один запрос к прокси с таймаутом. Бросает { kind, status, raw }
-async function ratingFetchOnce(body) {
+async function ratingFetchOnce(body, timeoutMs, extSignal) {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 40000);
+  const onAbort = () => ctrl.abort();
+  if (extSignal) { if (extSignal.aborted) throw { kind: 'cancel', status: 0, raw: '' }; extSignal.addEventListener('abort', onAbort); }
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   let resp, raw;
   try {
-    resp = await fetch(RATING_WORKER_URL, {
+    resp = await proxyFetch('', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
       body: JSON.stringify(body),
@@ -2024,29 +2074,41 @@ async function ratingFetchOnce(body) {
     });
     raw = await resp.text();
   } catch (e) {
-    throw { kind: 'net', status: 0, raw: ctrl.signal.aborted ? 'таймаут 40 с: сервер слишком долго не отвечает' : String(e) };
-  } finally { clearTimeout(timer); }
+    if (extSignal && extSignal.aborted) throw { kind: 'cancel', status: 0, raw: '' };
+    throw { kind: 'net', status: 0, raw: ctrl.signal.aborted ? `таймаут ${Math.round(timeoutMs / 1000)} с: сервер слишком долго не отвечает` : String(e) };
+  } finally {
+    clearTimeout(timer);
+    if (extSignal) extSignal.removeEventListener('abort', onAbort);
+  }
   if (!resp.ok) throw { kind: 'http', status: resp.status, raw };
   let rows;
   try { rows = JSON.parse(raw); } catch (e) { throw { kind: 'parse', status: resp.status, raw: raw.slice(0, 3000) }; }
   if (!Array.isArray(rows)) throw { kind: 'shape', status: resp.status, raw: JSON.stringify(rows).slice(0, 3000) };
   return rows;
 }
-// До 3 попыток: «Network connection lost» и другие 5xx обычно проходят со второго раза
-async function ratingFetchRetry(body, onRetry) {
+const ratingRetryable = (e) => e.kind === 'net' || (e.kind === 'http' && (e.status >= 500 || e.status === 429));
+
+// Запрос страницы с повторами. Первая страница при сбоях запрашивается всё меньшими порциями.
+async function ratingFetchAdaptive(st, page, onStatus) {
+  const sizes = page === 1 ? RATING_SIZES : [st.size, st.size];
+  const skip = page === 1 ? 0 : st.rawCount;
   let err;
-  for (let i = 1; i <= 3; i++) {
-    try { return await ratingFetchOnce(body); }
-    catch (e) {
+  for (let i = 0; i < sizes.length; i++) {
+    const size = sizes[i];
+    const body = { ...st.base, page: Math.floor(skip / size) + 1, pageSize: size, skip, take: size };
+    try {
+      const rows = await ratingFetchOnce(body, i === 0 ? 45000 : 30000, st.ctrl.signal);
+      return { rows, size };
+    } catch (e) {
       err = e;
-      const retryable = e.kind === 'net' || (e.kind === 'http' && (e.status >= 500 || e.status === 429));
-      if (!retryable || i === 3) break;
-      if (onRetry) onRetry(i + 1);
-      await new Promise(r => setTimeout(r, RATING_RETRY_MS * i));
+      if (e.kind === 'cancel' || !ratingRetryable(e) || i === sizes.length - 1) break;
+      onStatus(page === 1 ? `Сервер не ответил, пробуем запрос полегче (${i + 2} из ${sizes.length})` : `Сервер не ответил, пробуем ещё раз (${i + 2} из ${sizes.length})`);
+      await new Promise(r => setTimeout(r, RATING_RETRY_MS * (i + 1)));
     }
   }
   throw err;
 }
+
 function ratingErrorHtml(e, retryCall) {
   let head;
   if (e.kind === 'http' && e.status >= 500) head = `Сервер рейтинга ФВВСР сейчас не отвечает (ошибка ${e.status}). Обычно помогает повторить запрос через минуту.`;
@@ -2057,6 +2119,8 @@ function ratingErrorHtml(e, retryCall) {
   return `<div class="rank-status err">${esc(head)}</div>
     <div style="text-align:center;margin-top:10px"><button class="btn" style="max-width:260px" onclick="${retryCall}">Повторить</button></div>${detail}`;
 }
+
+function cancelRating() { if (ratingState && ratingState.ctrl) ratingState.ctrl.abort(); }
 
 async function fetchRating() {
   const box = $('ratingResults');
@@ -2073,35 +2137,71 @@ async function fetchRating() {
     name: $('rkName').value.trim()
   };
   if (options.pool) options.strict = true;
-  ratingState = {
-    base: { sort: [{ field: 'Result', dir: 'asc' }], sportID: RATING_SPORT_ID, genderID: rkGender, unique: $('rkUnique').checked, options: JSON.stringify(options) },
-    rows: [], page: 0, more: false, unique: $('rkUnique').checked
-  };
+  if (ratingState && ratingState.ctrl) ratingState.ctrl.abort();      // прежний поиск больше не нужен
+  const base = { sort: [{ field: 'Result', dir: 'asc' }], sportID: RATING_SPORT_ID, genderID: rkGender, unique: $('rkUnique').checked, options: JSON.stringify(options) };
+  ratingState = { base, rows: [], rawCount: 0, size: RATING_SIZES[0], more: false, unique: $('rkUnique').checked, ctrl: null, key: JSON.stringify(base) };
   await loadRatingPage(1);
 }
+
+function paintRating(banner) {
+  const st = ratingState, box = $('ratingResults');
+  const shown = st.unique ? dedupeBestPerPerson(st.rows) : st.rows;
+  renderRating(shown);
+  if (banner) box.insertAdjacentHTML('afterbegin', `<div class="rank-note" id="ratingBanner">${banner}</div>`);
+  if (shown.length) box.insertAdjacentHTML('beforeend', `<div id="ratingMore" style="text-align:center;margin:12px 0 4px">${
+    st.more ? `<button class="btn btn-ghost" style="max-width:300px" onclick="loadRatingPage(${st.page + 1})">Показать ещё</button>` : ''}</div>`);
+}
+const ratingTime = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
 async function loadRatingPage(page) {
   const st = ratingState; if (!st) return;
   const box = $('ratingResults');
   const first = page === 1;
-  const status = (txt) => {
-    if (first) box.innerHTML = `<div class="rank-status">${esc(txt)}</div>`;
-    else { const m = $('ratingMore'); if (m) m.innerHTML = `<div class="rank-status">${esc(txt)}</div>`; }
+  st.ctrl = new AbortController();
+  const myCtrl = st.ctrl;
+  const cached = first ? ratingCacheGet(st.key) : null;
+
+  // что показываем, пока ждём ответ
+  let phase = first ? 'Ищем результаты' : 'Загружаем ещё';
+  const t0 = Date.now();
+  const cancelBtn = `<button class="link-btn" onclick="cancelRating()">Отменить</button>`;
+  const paintWait = () => {
+    if (myCtrl.signal.aborted) return;
+    const sec = Math.floor((Date.now() - t0) / 1000);
+    const txt = `${phase}… ${sec} с`;
+    if (cached) { const b = $('ratingBanner'); if (b) b.innerHTML = `Показаны сохранённые результаты от ${ratingTime(cached.t)}. ${esc(txt)} ${cancelBtn}`; }
+    else if (first) box.innerHTML = `<div class="rank-status">${esc(txt)}<br>${cancelBtn}</div>`;
+    else { const m = $('ratingMore'); if (m) m.innerHTML = `<div class="rank-status">${esc(txt)} ${cancelBtn}</div>`; }
   };
-  status(first ? 'Ищем результаты…' : 'Загружаем ещё…');
-  const body = { ...st.base, page, pageSize: RATING_PAGE, skip: (page - 1) * RATING_PAGE, take: RATING_PAGE };
+
+  if (cached) {                                    // мгновенно показываем сохранённое, свежее подгружаем фоном
+    st.rows = cached.rows; st.rawCount = cached.rows.length; st.size = cached.size; st.page = 1;
+    st.more = cached.rows.length >= cached.size;
+    paintRating('x');
+  }
+  paintWait();
+  const timer = setInterval(paintWait, 1000);
   try {
-    const rows = await ratingFetchRetry(body, (n) => status(`Сервер ответил ошибкой, пробуем ещё раз (${n} из 3)…`));
+    const { rows, size } = await ratingFetchAdaptive(st, page, (txt) => { phase = txt; paintWait(); });
+    if (myCtrl.signal.aborted) return;
+    st.size = first ? size : st.size;
     st.page = page;
     st.rows = first ? rows : st.rows.concat(rows);
-    st.more = rows.length >= RATING_PAGE;                       // страница заполнена целиком — скорее всего, есть продолжение
-    const shown = st.unique ? dedupeBestPerPerson(st.rows) : st.rows;
-    renderRating(shown);
-    if (shown.length) box.insertAdjacentHTML('beforeend', `<div id="ratingMore" style="text-align:center;margin:12px 0 4px">${
-      st.more ? `<button class="btn btn-ghost" style="max-width:300px" onclick="loadRatingPage(${page + 1})">Показать ещё</button>` : ''}</div>`);
+    st.rawCount = first ? rows.length : st.rawCount + rows.length;
+    st.more = rows.length >= st.size;
+    if (first && rows.length) ratingCacheSet(st.key, rows, st.size);
+    paintRating('');
   } catch (e) {
-    if (first) box.innerHTML = ratingErrorHtml(e, 'fetchRating()');
+    if (e.kind === 'cancel') {
+      if (cached) paintRating(`Показаны сохранённые результаты от ${ratingTime(cached.t)}. Обновление отменено.`);
+      else if (first) box.innerHTML = `<div class="rank-status">Поиск отменён.</div>`;
+      else { const m = $('ratingMore'); if (m) m.innerHTML = `<button class="btn btn-ghost" style="max-width:300px" onclick="loadRatingPage(${page})">Показать ещё</button>`; }
+    } else if (cached) {                           // сервер не отвечает, но у нас есть сохранённый ответ
+      paintRating(`Сервер рейтинга сейчас не отвечает, поэтому показаны сохранённые результаты от ${ratingTime(cached.t)}. <button class="link-btn" onclick="fetchRating()">Обновить</button>`);
+    } else if (first) box.innerHTML = ratingErrorHtml(e, 'fetchRating()');
     else { const m = $('ratingMore'); if (m) m.innerHTML = ratingErrorHtml(e, `loadRatingPage(${page})`); }
+  } finally {
+    clearInterval(timer);
   }
 }
 
@@ -2143,7 +2243,7 @@ async function fetchCompetitions() {
   });
 
   try {
-    const resp = await fetch(`${RATING_WORKER_URL}/competitions?${params.toString()}`);
+    const resp = await proxyFetch(`/competitions?${params.toString()}`);
     const raw = await resp.text();
     let data;
     try {
@@ -2237,8 +2337,9 @@ function renderRating(rows) {
   if (withLinks) {
     note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный PDF-документ на сайте ФВВСР со временем каждого участника, он откроется во внешнем браузере. Если видите пустое окно, нажмите значок копирования рядом с «Протокол» и вставьте ссылку в браузер.</div>`;
   } else {
-    note = `<div class="rank-note">Сервер не прислал ссылок на протоколы. Проверить результат можно в <a href="${RSF_CALENDAR_URL}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">календаре ФВВСР</a>: найдите соревнование по названию и дате. Если вы хотите, чтобы ссылки появились, пришлите в чат текст ниже.
-      <textarea readonly>${esc(JSON.stringify(rows[0], null, 1).slice(0, 2500))}</textarea></div>`;
+    note = `<div class="rank-note">Ссылок на протоколы сервер не прислал. Проверить результат можно в <a href="${RSF_CALENDAR_URL}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">календаре ФВВСР</a>: найдите соревнование по названию и дате.
+      <details style="margin-top:6px"><summary style="cursor:pointer">Данные для диагностики</summary>Чтобы ссылки появились, пришлите этот текст в чат:
+      <textarea readonly>${esc(JSON.stringify(rows[0], null, 1).slice(0, 2500))}</textarea></details></div>`;
   }
   if (missingDate && withLinks) {
     note += `<div class="rank-note">У части результатов не удалось прочитать дату.<textarea readonly>${esc(JSON.stringify(rows.find(r => !rsfPickDate(r)), null, 1).slice(0, 2000))}</textarea></div>`;
