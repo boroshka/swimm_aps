@@ -1228,7 +1228,14 @@ function openExt(e, url, external) {
 function rsfLinkChip(label, path) {
   const url = RSF_BASE + path;
   const pdf = /\/Document\//i.test(path);          // протокол — это PDF-файл
-  return `<a class="rank-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, ${pdf})">${esc(label)}<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
+  // Сервер отдаёт протокол как файл для скачивания, поэтому прямая ссылка в новой вкладке/во встроенном
+  // браузере Telegram даёт пустую страницу. Основную кнопку открываем через онлайн-просмотрщик PDF,
+  // а прямую ссылку оставляем отдельной кнопкой «PDF» (скачать файл).
+  const href = pdf ? 'https://docs.google.com/viewer?url=' + encodeURIComponent(url) : url;
+  const main = `<a class="rank-link" href="${esc(href)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, false)">${esc(label)}<svg class="i" viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></a>`;
+  if (!pdf) return main;
+  const direct = `<a class="rank-link" href="${esc(url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, true)" title="Скачать PDF напрямую">PDF</a>`;
+  return main + direct;
 }
 // Кнопка «Копировать»: ссылку можно вставить в любой браузер
 function rsfCopyChip(path) {
@@ -2335,7 +2342,7 @@ function renderRating(rows) {
   const missingDate = rows.some(r => !rsfPickDate(r));
   let note;
   if (withLinks) {
-    note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный PDF-документ на сайте ФВВСР со временем каждого участника, он откроется во внешнем браузере. Если видите пустое окно, нажмите значок копирования рядом с «Протокол» и вставьте ссылку в браузер.</div>`;
+    note = `<div class="rank-note">Чтобы убедиться в результате, откройте «Протокол»: это официальный PDF-документ на сайте ФВВСР со временем каждого участника, он откроется в просмотрщике. Если просмотрщик не загрузился, нажмите «PDF» (скачать файл) или значок копирования и вставьте ссылку в браузер.</div>`;
   } else {
     note = `<div class="rank-note">Ссылок на протоколы сервер не прислал. Проверить результат можно в <a href="${RSF_CALENDAR_URL}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)">календаре ФВВСР</a>: найдите соревнование по названию и дате.
       <details style="margin-top:6px"><summary style="cursor:pointer">Данные для диагностики</summary>Чтобы ссылки появились, пришлите этот текст в чат:
