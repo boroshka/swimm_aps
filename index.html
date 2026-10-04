@@ -583,7 +583,7 @@
   .done-stat span { display: block; color: var(--soft); font-size: 11.5px; font-weight: 600; margin-top: 2px; }
   .done-title { font-size: 25px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 14px; }
   .map-box {
-    position: relative; height: 0; padding-bottom: 75%; border-radius: 22px; overflow: hidden;   /* 4:3 без aspect-ratio */
+    position: relative; height: 0; padding-bottom: 88%; border-radius: 22px; overflow: hidden;   /* почти квадрат, как карточка маршрута в Strava */
     background: radial-gradient(120% 90% at 50% 0%, #162036 0%, #0B1222 75%); border: 1px solid var(--line);
   }
   .map-tiles { position: absolute; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden; animation: fadeIn 0.7s ease both; }
@@ -603,6 +603,20 @@
   .done-card.is-done { border-color: rgba(126, 217, 176, 0.35); }
   .map-attr { position: absolute; right: 8px; bottom: 6px; font-size: 9.5px; font-weight: 600; color: rgba(238, 242, 250, 0.55); text-shadow: 0 0 3px #0A0E18, 0 0 3px #0A0E18; pointer-events: none; z-index: 2; }
   .map-note { position: absolute; left: 10px; right: 10px; top: 10px; background: rgba(10, 14, 24, 0.85); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #B9C4DA; line-height: 1.4; text-align: center; }
+
+  .map-cv { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+  .map-style {
+    position: absolute; top: 10px; right: 10px; z-index: 3;
+    display: flex; gap: 2px; padding: 3px; border-radius: 999px;
+    background: rgba(10, 14, 24, 0.72); border: 1px solid rgba(190, 205, 235, 0.22);
+    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  }
+  .map-style button {
+    border: none; background: transparent; color: #B9C4DA;
+    font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; transition: background 0.2s ease, color 0.2s ease;
+  }
+  .map-style button.on { background: var(--rose); color: var(--dark); }
+  .map-replay { position: absolute; left: 10px; bottom: 6px; z-index: 2; font-size: 10.5px; font-weight: 600; color: rgba(238, 242, 250, 0.6); text-shadow: 0 0 3px #0A0E18, 0 0 3px #0A0E18; pointer-events: none; }
   .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
   .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
   .done-actions { padding-top: 4px; }
@@ -2908,172 +2922,257 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && $('doneOverlay') && !$('doneOverlay').classList.contains('hidden')) closeWorkoutDone();
 });
 
-/* ---------- Карта: тёмные плитки Esri (без ключа) + запасные плитки OpenStreetMap, маршрут поверх ---------- */
-function renderRouteMap(host, route, progress, done, reduce) {
-  let raf = 0, ro = null, dead = false, confettiTimer = 0, noteTimer = 0;
-  const TILE = 256;
-  const toWorld = (lat, lon, z) => {
-    const s = TILE * Math.pow(2, z), sin = Math.sin(lat * Math.PI / 180);
-    return [(lon + 180) / 360 * s, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s];
+/* ============================================================
+   Карта в стиле Strava: камера «ныряет» к старту, едет за пловцом и в конце отъезжает на весь маршрут.
+   Один движок рисует и карточку итога, и сторис (картинка и видео).
+   ============================================================ */
+const FLY_TILE = 256;
+const FLY_STYLES = {
+  sat:  { label: 'Спутник', layers: ['World_Imagery', 'Reference/World_Boundaries_and_Places'], maxZ: 18, attr: 'Esri, Maxar, Earthstar Geographics', shade: 'rgba(6,12,26,0.20)', bg: '#0a1626' },
+  dark: { label: 'Карта', layers: ['Canvas/World_Dark_Gray_Base', 'Canvas/World_Dark_Gray_Reference'], maxZ: 16, attr: 'Esri, HERE, Garmin, © OpenStreetMap contributors', shade: '', bg: '#0c1424' }
+};
+let flyStyle = 'sat';
+// тайминг (секунды): ныряем к старту → плывём → пауза → отъезжаем на весь маршрут
+const FLY_SWIM0 = 0.9, FLY_SWIM1 = 4.6, FLY_PULL0 = 5.0, FLY_PULL1 = 6.6, FLY_TOTAL = 7.2;
+const flyEase = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * x * (x * (x * 6 - 15) + 10); };   // smootherstep: мягкий старт и финиш
+function flyWorld(lat, lon, z) {
+  const s = FLY_TILE * Math.pow(2, z), sin = Math.sin(lat * Math.PI / 180);
+  return [(lon + 180) / 360 * s, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s];
+}
+
+// W, H — размер кадра в «css-пикселях»; он нужен, чтобы подобрать масштаб и понять, сколько плиток грузить
+function createFlyMap(route, styleKey, W, H) {
+  const st = FLY_STYLES[styleKey] || FLY_STYLES.sat;
+  let zf = 3;
+  for (let t = st.maxZ - 2; t >= 3; t--) {                 // обзорный масштаб: весь маршрут целиком с полями
+    const w = route.pts.map(p => flyWorld(p[0], p[1], t)), xs = w.map(p => p[0]), ys = w.map(p => p[1]);
+    if (Math.max(...xs) - Math.min(...xs) <= W * 0.6 && Math.max(...ys) - Math.min(...ys) <= H * 0.5) { zf = t; break; }
+  }
+  const zc = Math.min(st.maxZ, zf + 2);                    // «крупный» масштаб, с которого камера следит за пловцом
+  const levels = []; for (let l = Math.max(2, zf - 1); l <= zc; l++) levels.push(l);
+  const P = route.pts.map(p => flyWorld(p[0], p[1], zf));
+  const A = P[0], B = P[P.length - 1], M = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2];
+  const fm = { route, st, zf, zc, levels, tiles: new Map(), dead: false, count: 0 };
+
+  fm.load = function () {
+    const jobs = [];
+    [zf, ...levels.filter(l => l !== zf)].forEach(l => {   // сначала обзорный уровень — карта появляется сразу
+      const n = Math.pow(2, l), sc = Math.pow(2, l - zf), mx = W * 0.75, my = H * 0.75;
+      const xs = P.map(p => p[0] * sc), ys = P.map(p => p[1] * sc);
+      const x0 = Math.floor((Math.min(...xs) - mx) / FLY_TILE), x1 = Math.floor((Math.max(...xs) + mx) / FLY_TILE);
+      const y0 = Math.max(0, Math.floor((Math.min(...ys) - my) / FLY_TILE)), y1 = Math.min(n - 1, Math.floor((Math.max(...ys) + my) / FLY_TILE));
+      for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+        const wx = ((tx % n) + n) % n;
+        st.layers.forEach((layer, li) => {
+          const url = `https://server.arcgisonline.com/ArcGIS/rest/services/${layer}/MapServer/tile/${l}/${ty}/${wx}`;
+          const key = `${l}:${tx}:${ty}:${li}`;
+          const put = (im, clean, light) => { if (im && !fm.dead) { fm.tiles.set(key, { im, clean, light: !!light, born: performance.now() }); fm.count++; } return !!im; };
+          jobs.push(
+            loadCors(url + '?c=1').then(im => put(im, true) || loadCors(url, false).then(im2 => put(im2, false)))
+              .then(ok => {                                  // Esri недоступен — запасной вариант: OpenStreetMap (только основа)
+                if (ok || li !== 0) return;
+                return loadCors(`https://tile.openstreetmap.org/${l}/${wx}/${ty}.png`).then(im => put(im, true, true));
+              })
+          );
+        });
+      }
+    });
+    return Promise.all(jobs);
   };
 
-  function draw() {
-    cancelAnimationFrame(raf);
-    clearTimeout(noteTimer);
-    const W = host.clientWidth || 320;
-    if (host.clientHeight < 40) host.style.height = Math.round(W * 0.75) + 'px';     // страховка, если высота не посчиталась
-    const H = host.clientHeight || Math.round(W * 0.75);
-    host.innerHTML = '';
+  // t — время анимации (с). o: { k — плотность пикселей, ratio, done, forExport }
+  fm.draw = function (ctx, t, x, y, w, h, o) {
+    const k = o.k, u = k, ratio = Math.min(1, o.ratio), now = performance.now();
+    const ramp = (a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+    const pe = flyEase(ramp(0, 0.7));
+    const s1 = flyEase(ramp(0, 1.4)), s3 = flyEase(ramp(FLY_PULL0, FLY_PULL1));
+    const pr = flyEase(ramp(FLY_SWIM0, FLY_SWIM1)) * ratio;
+    const Q0 = [A[0] + (B[0] - A[0]) * pr, A[1] + (B[1] - A[1]) * pr];
+    // камера: обзор → нырок к старту → слежение за головой → отъезд на весь маршрут
+    const Zfollow = zc - 0.15, Zstart = zf - 0.9;
+    let Z = Zstart + (Zfollow - Zstart) * s1; Z = Z + (zf - Z) * s3;
+    let C = [M[0] + (Q0[0] - M[0]) * s1, M[1] + (Q0[1] - M[1]) * s1];
+    C = [C[0] + (M[0] - C[0]) * s3, C[1] + (M[1] - C[1]) * s3];
+    const f = k * Math.pow(2, Z - zf);                       // zf-мир → экранные пиксели
+    const S = (p) => [x + w / 2 + (p[0] - C[0]) * f, y + h / 2 + (p[1] - C[1]) * f];
 
-    // масштаб: весь маршрут целиком с полями
-    let z = 3;
-    for (let t = 15; t >= 3; t--) {
-      const w = route.pts.map(p => toWorld(p[0], p[1], t));
-      const xs = w.map(p => p[0]), ys = w.map(p => p[1]);
-      if (Math.max(...xs) - Math.min(...xs) <= W * 0.62 && Math.max(...ys) - Math.min(...ys) <= H * 0.52) { z = t; break; }
+    ctx.save();
+    ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
+    ctx.fillStyle = st.bg; ctx.fillRect(x, y, w, h);
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+
+    // ----- плитки: нижний уровень + плавный кроссфейд на следующий (без «скачков» резкости)
+    const lo = Math.min(zc, Math.max(levels[0], Math.floor(Z)));
+    const hi = lo < zc ? lo + 1 : null, hiA = hi ? flyEase(Z - lo) : 0;
+    const drawTiles = (l, li, alpha) => {
+      if (alpha <= 0.004) return;
+      const sc = Math.pow(2, l - zf), sz = FLY_TILE / sc * f;
+      const tx0 = Math.floor((C[0] - (w / 2) / f) * sc / FLY_TILE), tx1 = Math.floor((C[0] + (w / 2) / f) * sc / FLY_TILE);
+      const ty0 = Math.floor((C[1] - (h / 2) / f) * sc / FLY_TILE), ty1 = Math.floor((C[1] + (h / 2) / f) * sc / FLY_TILE);
+      for (let ty = ty0; ty <= ty1; ty++) for (let tx = tx0; tx <= tx1; tx++) {
+        const tl = fm.tiles.get(`${l}:${tx}:${ty}:${li}`); if (!tl) continue;
+        if (o.forExport && !tl.clean) continue;               // такая плитка «испортила» бы файл
+        const fade = o.forExport ? 1 : Math.min(1, (now - tl.born) / 600);
+        ctx.globalAlpha = alpha * pe * fade;
+        ctx.drawImage(tl.im, x + w / 2 + (tx * FLY_TILE / sc - C[0]) * f - 0.25, y + h / 2 + (ty * FLY_TILE / sc - C[1]) * f - 0.25, sz + 0.5, sz + 0.5);
+        if (tl.light) { ctx.fillStyle = 'rgba(8,12,22,0.55)'; ctx.fillRect(x + w / 2 + (tx * FLY_TILE / sc - C[0]) * f, y + h / 2 + (ty * FLY_TILE / sc - C[1]) * f, sz, sz); }
+      }
+      ctx.globalAlpha = 1;
+    };
+    drawTiles(lo, 0, 1);
+    if (hi) drawTiles(hi, 0, hiA);
+    drawTiles(lo, 1, 1 - hiA);                                // подписи нижнего уровня гаснут, верхнего — проявляются
+    if (hi) drawTiles(hi, 1, hiA);
+    if (st.shade) { ctx.fillStyle = st.shade; ctx.fillRect(x, y, w, h); }
+
+    // ----- маршрут
+    const a = S(A), b = S(B), q = S(Q0);
+    ctx.globalAlpha = pe; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.setLineDash([2 * u, 13 * u]); ctx.lineDashOffset = -t * 20 * u;           // бегущий пунктир — «ещё впереди»
+    ctx.strokeStyle = 'rgba(238,242,250,0.7)'; ctx.lineWidth = 4 * u;
+    ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
+    ctx.setLineDash([]);
+    if (Math.hypot(q[0] - a[0], q[1] - a[1]) > 0.5) {
+      ctx.strokeStyle = 'rgba(8,12,22,0.55)'; ctx.lineWidth = 15 * u;                // тёмная подложка
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.shadowColor = 'rgba(221,165,180,0.95)'; ctx.shadowBlur = 26 * u;           // свечение
+      ctx.strokeStyle = 'rgba(221,165,180,0.5)'; ctx.lineWidth = 10 * u;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+      const gr = ctx.createLinearGradient(a[0], a[1], q[0], q[1]);
+      gr.addColorStop(0, '#6C9BFF'); gr.addColorStop(1, '#F6C1CF');
+      ctx.strokeStyle = gr; ctx.lineWidth = 7 * u;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 2 * u;
+      ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
     }
-    const wpts = route.pts.map(p => toWorld(p[0], p[1], z));
-    const cx = (Math.min(...wpts.map(p => p[0])) + Math.max(...wpts.map(p => p[0]))) / 2;
-    const cy = (Math.min(...wpts.map(p => p[1])) + Math.max(...wpts.map(p => p[1]))) / 2;
-    const ox = cx - W / 2, oy = cy - H / 2;                  // мировые координаты левого верхнего угла
-    const px = (p) => [p[0] - ox, p[1] - oy];
 
-    // плитки: Esri Dark Gray (основа + подписи). CARTO с конца августа 2026 требует ключ и отдаёт заглушку «API KEY REQUIRED»
-    let tilesOk = 0;
-    const n = Math.pow(2, z);
-    const layer = document.createElement('div');
-    layer.className = 'map-tiles';
-    const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
-    for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + W) / TILE); tx++) {
-      for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + H) / TILE); ty++) {
-        if (ty < 0 || ty >= n) continue;
-        const wx = ((tx % n) + n) % n;
-        const pos = `left:${(tx * TILE - ox).toFixed(1)}px;top:${(ty * TILE - oy).toFixed(1)}px`;
-        const base = new Image();
-        base.alt = ''; base.draggable = false; base.style.cssText = pos;
-        base.onload = () => { tilesOk++; };
-        // если Esri недоступен — запасной вариант: OpenStreetMap, затемнённый фильтром
-        base.onerror = () => {
-          if (!base.dataset.alt) {
-            base.dataset.alt = '1';
-            base.style.filter = 'invert(1) hue-rotate(180deg) saturate(0.6) brightness(0.8) contrast(0.95)';
-            attr.textContent = '© OpenStreetMap contributors';
-            base.src = `https://tile.openstreetmap.org/${z}/${wx}/${ty}.png`;
-          } else base.style.display = 'none';
-        };
-        base.src = `${ESRI}World_Dark_Gray_Base/MapServer/tile/${z}/${ty}/${wx}`;
-        layer.appendChild(base);
-        const lab = new Image();                       // названия городов и водоёмов
-        lab.alt = ''; lab.draggable = false; lab.style.cssText = pos;
-        lab.onerror = () => { lab.style.display = 'none'; };
-        lab.src = `${ESRI}World_Dark_Gray_Reference/MapServer/tile/${z}/${ty}/${wx}`;
-        layer.appendChild(lab);
+    // ----- старт, финиш, подписи
+    const inView = (p) => p[0] > x - 40 * u && p[0] < x + w + 40 * u && p[1] > y - 40 * u && p[1] < y + h + 40 * u;
+    const pin = (p, fill, stroke) => { ctx.beginPath(); ctx.arc(p[0], p[1], 9 * u, 0, 7); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 3.5 * u; ctx.strokeStyle = stroke; ctx.stroke(); };
+    const lab = (p, text, above) => {
+      ctx.font = sFont(800, 13.5 * u); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineJoin = 'round';
+      const lx = Math.min(x + w - 8 * u, Math.max(x + 8 * u, p[0])), ly = Math.min(y + h - 10 * u, Math.max(y + 22 * u, p[1] + (above ? -17 : 28) * u));
+      ctx.lineWidth = 4.5 * u; ctx.strokeStyle = 'rgba(8,12,22,0.92)'; ctx.strokeText(text, lx, ly);
+      ctx.fillStyle = '#FFFFFF'; ctx.fillText(text, lx, ly); ctx.textAlign = 'left';
+    };
+    ctx.globalAlpha = pe;
+    if (inView(a)) pin(a, '#6C9BFF', '#0A0E18');
+    if (inView(b)) pin(b, o.done ? '#7ED9B0' : '#0A0E18', o.done ? '#0A0E18' : '#EEF2FA');
+    ctx.globalAlpha = pe * flyEase(ramp(0.7, 1.5));
+    const aboveA = a[1] < b[1];
+    if (inView(a)) lab(a, route.from, aboveA);
+    if (inView(b)) lab(b, route.to, !aboveA);
+    ctx.globalAlpha = 1;
+
+    // финиш: волны радости
+    if (o.done && t > FLY_SWIM1) {
+      for (let i = 0; i < 2; i++) {
+        const kk = Math.min(1, Math.max(0, (t - FLY_SWIM1 - i * 0.35) / 1.5));
+        if (kk > 0 && kk < 1) { ctx.beginPath(); ctx.arc(b[0], b[1], (12 + kk * 70) * u, 0, 7); ctx.strokeStyle = `rgba(126,217,176,${(1 - kk) * 0.85})`; ctx.lineWidth = 4 * u; ctx.stroke(); }
       }
     }
-    const attr = document.createElement('div');
-    attr.className = 'map-attr';
-    attr.textContent = 'Esri, HERE, Garmin, © OpenStreetMap contributors';
-    host.appendChild(layer);
-    host.appendChild(attr);
 
-    // маршрут
-    const P = wpts.map(px);
-    const A = P[0], B = P[P.length - 1];
-    const lerp = (t) => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t];
-    const end = lerp(progress);
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('class', 'map-svg'); svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('width', W); svg.setAttribute('height', H);
-    const mk = (tag, attrs) => { const e = document.createElementNS(ns, tag); Object.entries(attrs).forEach(([k, v]) => e.setAttribute(k, v)); svg.appendChild(e); return e; };
-    // лёгкая сетка: если плитки не загрузятся, схема всё равно выглядит как карта
-    for (let gx = 40; gx < W; gx += 40) mk('line', { x1: gx, y1: 0, x2: gx, y2: H, stroke: '#9DBBFF', 'stroke-opacity': 0.06 });
-    for (let gy = 40; gy < H; gy += 40) mk('line', { x1: 0, y1: gy, x2: W, y2: gy, stroke: '#9DBBFF', 'stroke-opacity': 0.06 });
-    mk('line', { x1: A[0], y1: A[1], x2: B[0], y2: B[1], class: 'map-flow', stroke: '#EEF2FA', 'stroke-opacity': 0.6, 'stroke-width': 3, 'stroke-dasharray': '2 7', 'stroke-linecap': 'round' });
-    mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-opacity': 0.28, 'stroke-width': 11, 'stroke-linecap': 'round', id: 'mapGlow' });
-    const prog = mk('line', { x1: A[0], y1: A[1], x2: A[0], y2: A[1], stroke: '#DDA5B4', 'stroke-width': 4.5, 'stroke-linecap': 'round' });
-    const glow = svg.querySelector('#mapGlow');
-    // старт и финиш
-    mk('circle', { cx: A[0], cy: A[1], r: 7, fill: '#6C9BFF', stroke: '#0A0E18', 'stroke-width': 3 });
-    mk('circle', { cx: B[0], cy: B[1], r: 7, fill: done ? '#7ED9B0' : '#0A0E18', stroke: done ? '#0A0E18' : '#EEF2FA', 'stroke-width': 3 });
-    const label = (p, text, dy, anchor) => {
-      const t = mk('text', { x: Math.min(W - 8, Math.max(8, p[0])), y: Math.min(H - 8, Math.max(16, p[1] + dy)), 'text-anchor': anchor, 'font-size': 11.5, 'font-weight': 700, fill: '#EEF2FA', stroke: '#0A0E18', 'stroke-width': 3.5, 'paint-order': 'stroke', 'stroke-linejoin': 'round' });
-      t.textContent = text;
-    };
-    const aboveA = A[1] < B[1];                               // подписи уводим от линии наружу
-    label(A, route.from, aboveA ? -14 : 24, 'middle');
-    label(B, route.to, aboveA ? 24 : -14, 'middle');
-    // пловец
-    const dot = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: '#DDA5B4', stroke: '#6C9BFF', 'stroke-width': 3.5 });
-    const ring = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: 'none', stroke: '#DDA5B4', 'stroke-width': 2, 'stroke-opacity': 0.7 });
-    const ring2 = mk('circle', { cx: A[0], cy: A[1], r: 8, fill: 'none', stroke: '#6C9BFF', 'stroke-width': 1.5, 'stroke-opacity': 0 });
-    const burst = mk('circle', { cx: B[0], cy: B[1], r: 8, fill: 'none', stroke: '#7ED9B0', 'stroke-width': 3, 'stroke-opacity': 0 });
-    // пузырёк с расстоянием, который плывёт вместе с пловцом
-    const gb = mk('g', {});
-    const bRect = document.createElementNS(ns, 'rect'); [['rx', 12], ['ry', 12], ['height', 24], ['fill', 'rgba(10,14,24,0.88)'], ['stroke', 'rgba(190,205,235,0.3)']].forEach(([k, v]) => bRect.setAttribute(k, v));
-    const bText = document.createElementNS(ns, 'text'); [['font-size', 12.5], ['font-weight', 800], ['fill', '#EEF2FA'], ['text-anchor', 'middle']].forEach(([k, v]) => bText.setAttribute(k, v));
-    gb.appendChild(bRect); gb.appendChild(bText);
-    host.appendChild(svg);
+    // ----- пловец: рябь, светящаяся точка, пузырь с расстоянием
+    ctx.globalAlpha = pe;
+    for (let i = 0; i < 3; i++) {
+      const kk = ((t * 0.8 + i / 3) % 1);
+      ctx.beginPath(); ctx.arc(q[0], q[1], (12 + kk * 38) * u, 0, 7);
+      ctx.strokeStyle = `rgba(221,165,180,${(1 - kk) * 0.6 * pe})`; ctx.lineWidth = 2.6 * u; ctx.stroke();
+    }
+    ctx.shadowColor = 'rgba(221,165,180,0.95)'; ctx.shadowBlur = 20 * u;
+    ctx.beginPath(); ctx.arc(q[0], q[1], 11 * u, 0, 7); ctx.fillStyle = '#DDA5B4'; ctx.fill();
+    ctx.shadowBlur = 0; ctx.shadowColor = 'transparent';
+    ctx.lineWidth = 4 * u; ctx.strokeStyle = '#FFFFFF'; ctx.stroke();
+    if (pr > 0.001) {
+      const bt = fmtDist(pr * route.len); ctx.font = sFont(800, 14 * u);
+      const bw = ctx.measureText(bt).width + 22 * u, bh = 28 * u;
+      let by = q[1] - 50 * u; if (by < y + 8 * u) by = q[1] + 26 * u;
+      const bx = Math.min(x + w - bw - 8 * u, Math.max(x + 8 * u, q[0] - bw / 2));
+      sRound(ctx, bx, by, bw, bh, bh / 2); ctx.fillStyle = 'rgba(10,14,24,0.9)'; ctx.fill();
+      ctx.strokeStyle = 'rgba(190,205,235,0.35)'; ctx.lineWidth = 1.5 * u; ctx.stroke();
+      ctx.fillStyle = '#EEF2FA'; ctx.textBaseline = 'middle'; ctx.fillText(bt, bx + 11 * u, by + bh / 2 + 0.5 * u); ctx.textBaseline = 'alphabetic';
+    }
+    ctx.globalAlpha = 1;
+
+    // ----- виньетка по краям
+    const vg = ctx.createRadialGradient(x + w / 2, y + h / 2, Math.min(w, h) * 0.42, x + w / 2, y + h / 2, Math.max(w, h) * 0.78);
+    vg.addColorStop(0, 'rgba(5,8,16,0)'); vg.addColorStop(1, 'rgba(5,8,16,0.5)');
+    ctx.fillStyle = vg; ctx.fillRect(x, y, w, h);
+    ctx.restore();
+  };
+  return fm;
+}
+
+/* ---------- Карточка итога: карта на canvas, нажатие — повтор анимации, переключатель «Спутник / Карта» ---------- */
+function renderRouteMap(host, route, progress, done, reduce) {
+  let raf = 0, ro = null, dead = false, noteTimer = 0, rt = 0, lastW = 0, fm = null, t0 = 0, confettiShown = false;
+
+  function build() {
+    cancelAnimationFrame(raf); clearTimeout(noteTimer);
+    if (fm) fm.dead = true;
+    const W = host.clientWidth || 320;
+    if (host.clientHeight < 40) host.style.height = Math.round(W * 0.88) + 'px';           // страховка, если высота не посчиталась
+    const H = host.clientHeight || Math.round(W * 0.88);
+    const k = Math.min(2, window.devicePixelRatio || 1);
+    host.innerHTML = '';
+    const cv = document.createElement('canvas');
+    cv.className = 'map-cv'; cv.width = Math.round(W * k); cv.height = Math.round(H * k);
+    cv.setAttribute('role', 'img'); cv.setAttribute('aria-label', `Маршрут «${route.label}» на карте`);
+    host.appendChild(cv);
+
+    fm = createFlyMap(route, flyStyle, W, H);
+    const attr = document.createElement('div'); attr.className = 'map-attr'; attr.textContent = fm.st.attr; host.appendChild(attr);
+    if (!reduce) { const hint = document.createElement('div'); hint.className = 'map-replay'; hint.textContent = 'Нажмите, чтобы повторить'; host.appendChild(hint); }
+    const sw = document.createElement('div'); sw.className = 'map-style';
+    sw.innerHTML = Object.keys(FLY_STYLES).map(key => `<button type="button" data-s="${key}" class="${key === flyStyle ? 'on' : ''}">${FLY_STYLES[key].label}</button>`).join('');
+    sw.addEventListener('click', (e) => {
+      const btn = e.target.closest('button'); if (!btn || btn.dataset.s === flyStyle) return;
+      e.stopPropagation(); flyStyle = btn.dataset.s; build();
+    });
+    host.appendChild(sw);
+    fm.load();
 
     // если за 6 секунд не загрузилась ни одна плитка — честно говорим об этом
     noteTimer = setTimeout(() => {
-      if (dead || tilesOk > 0 || host.querySelector('.map-note')) return;
+      if (dead || fm.count > 0 || host.querySelector('.map-note')) return;
       const note = document.createElement('div');
-      note.className = 'map-note';
+      note.className = 'map-note'; note.style.top = '52px';
       note.textContent = 'Карта не загрузилась — показана схема. Настоящую карту откройте кнопкой ниже.';
       host.appendChild(note);
     }, 6000);
 
-    // анимация проплыва
-    const t0 = performance.now(), dur = reduce ? 1 : 2200;
-    const step = (now) => {
+    const ctx = cv.getContext('2d');
+    t0 = performance.now(); confettiShown = false;
+    cv.onclick = () => { t0 = performance.now(); confettiShown = false; };
+    const o = { k, ratio: progress, done, forExport: false };
+    const loop = (now) => {
       if (dead) return;
-      const k = Math.min(1, (now - t0) / dur), e = 1 - Math.pow(1 - k, 3);
-      const q = lerp(progress * e);
-      prog.setAttribute('x2', q[0]); prog.setAttribute('y2', q[1]);
-      glow.setAttribute('x2', q[0]); glow.setAttribute('y2', q[1]);
-      dot.setAttribute('cx', q[0]); dot.setAttribute('cy', q[1]);
-      ring.setAttribute('cx', q[0]); ring.setAttribute('cy', q[1]);
-      const pulse = (now / 900) % 1;
-      ring.setAttribute('r', 8 + pulse * 12); ring.setAttribute('stroke-opacity', (1 - pulse) * 0.6);
-      const pulse2 = ((now / 900) + 0.5) % 1;
-      ring2.setAttribute('cx', q[0]); ring2.setAttribute('cy', q[1]); ring2.setAttribute('r', 8 + pulse2 * 22); ring2.setAttribute('stroke-opacity', (1 - pulse2) * 0.45);
-      dot.setAttribute('cy', q[1] + Math.sin(now / 180) * 0.8);
-      if (progress * e > 0.001) {                       // пузырёк «1,2 км» над пловцом
-        const txt = fmtDist(progress * e * route.len), bw = txt.length * 7.4 + 18;
-        const bx = Math.min(W - bw / 2 - 6, Math.max(bw / 2 + 6, q[0]));
-        let by = q[1] - 40; if (by < 6) by = q[1] + 20;
-        bText.textContent = txt;
-        bRect.setAttribute('x', bx - bw / 2); bRect.setAttribute('y', by); bRect.setAttribute('width', bw);
-        bText.setAttribute('x', bx); bText.setAttribute('y', by + 16.5);
-      }
-      if (done && k >= 1) {                              // финиш: волна радости
-        const bt = Math.min(1, (now - t0 - dur) / 1400);
-        burst.setAttribute('r', 8 + bt * 46); burst.setAttribute('stroke-opacity', bt >= 1 ? 0 : (1 - bt) * 0.9);
-      }
-      raf = requestAnimationFrame(step);
-      if (k >= 1 && done && !confettiTimer && !reduce) { confettiTimer = 1; confetti(host); }
+      const t = reduce ? FLY_TOTAL : (now - t0) / 1000;
+      fm.draw(ctx, t, 0, 0, cv.width, cv.height, o);
+      if (done && !reduce && !confettiShown && t >= FLY_SWIM1) { confettiShown = true; confetti(host); }
+      raf = requestAnimationFrame(loop);
     };
-    raf = requestAnimationFrame(step);
+    raf = requestAnimationFrame(loop);
   }
 
-  const safeDraw = () => {
-    try { draw(); }
+  const safeBuild = () => {
+    try { build(); }
     catch (e) {
       console.warn('карта:', e);
       host.innerHTML = `<div class="map-ph"><div>Не удалось построить карту<br><small>${esc(e.message || '')}</small><br>Откройте маршрут кнопкой ниже.</div></div>`;
     }
   };
-  safeDraw();
-  let rt = 0, lastW = host.clientWidth;
+  safeBuild();
+  lastW = host.clientWidth;
   if (typeof ResizeObserver !== 'undefined') {
     ro = new ResizeObserver(() => {
       if (host.clientWidth === lastW) return;
-      lastW = host.clientWidth; clearTimeout(rt); rt = setTimeout(safeDraw, 150);
+      lastW = host.clientWidth; clearTimeout(rt); rt = setTimeout(safeBuild, 150);
     });
     ro.observe(host);
   }
-  return { destroy() { dead = true; cancelAnimationFrame(raf); clearTimeout(rt); clearTimeout(noteTimer); if (ro) ro.disconnect(); } };
+  return { destroy() { dead = true; cancelAnimationFrame(raf); clearTimeout(rt); clearTimeout(noteTimer); if (fm) fm.dead = true; if (ro) ro.disconnect(); } };
 }
 
 function confetti(host) {
@@ -3093,7 +3192,6 @@ function confetti(host) {
    Сторис / рилс: один отрисовщик на canvas даёт живую анимацию, PNG и видео
    ============================================================ */
 const STORY_W = 1080, STORY_H = 1920;
-const ESRI_BASE = 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/';
 let lastDone = null;        // данные последнего итога тренировки
 let story = null;           // состояние открытого экрана сторис
 
@@ -3138,29 +3236,7 @@ function makeStoryBg() {
   return c;
 }
 
-// Геометрия карты в панели сторис: те же плитки Esri, но с увеличением ×2, чтобы подписи читались
-function storyGeo(route) {
-  const K = 2, PW = 960, PH = 640, Wv = PW / K, Hv = PH / K, TILE = 256;
-  const toWorld = (lat, lon, z) => {
-    const s = TILE * Math.pow(2, z), sin = Math.sin(lat * Math.PI / 180);
-    return [(lon + 180) / 360 * s, (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * s];
-  };
-  let z = 3;
-  for (let t = 15; t >= 3; t--) {
-    const w = route.pts.map(p => toWorld(p[0], p[1], t)), xs = w.map(p => p[0]), ys = w.map(p => p[1]);
-    if (Math.max(...xs) - Math.min(...xs) <= Wv * 0.6 && Math.max(...ys) - Math.min(...ys) <= Hv * 0.5) { z = t; break; }
-  }
-  const w = route.pts.map(p => toWorld(p[0], p[1], z));
-  const cx = (Math.min(...w.map(p => p[0])) + Math.max(...w.map(p => p[0]))) / 2;
-  const cy = (Math.min(...w.map(p => p[1])) + Math.max(...w.map(p => p[1]))) / 2;
-  const ox = cx - Wv / 2, oy = cy - Hv / 2;
-  const P = w.map(p => [(p[0] - ox) * K, (p[1] - oy) * K]);       // координаты внутри панели, px холста
-  const n = Math.pow(2, z), tiles = [];
-  for (let tx = Math.floor(ox / TILE); tx <= Math.floor((ox + Wv) / TILE); tx++)
-    for (let ty = Math.floor(oy / TILE); ty <= Math.floor((oy + Hv) / TILE); ty++)
-      if (ty >= 0 && ty < n) tiles.push({ z, ty, wx: ((tx % n) + n) % n, x: (tx * TILE - ox) * K, y: (ty * TILE - oy) * K, size: TILE * K });
-  return { K, PW, PH, A: P[0], B: P[P.length - 1], tiles };
-}
+const STORY_PW = 960, STORY_PH = 640, STORY_MAP_T0 = 0.6;      // панель карты и задержка старта «пролёта» камеры
 
 // Плитки с разрешением CORS — иначе canvas нельзя будет сохранить.
 // Если сервер CORS не разрешает, плитку всё равно показываем в предпросмотре, но в файл она не попадает.
@@ -3174,21 +3250,9 @@ function loadCors(url, cors = true) {
     im.src = url;
   });
 }
-function loadStoryTiles(st) {
-  const jobs = [];
-  st.geo.tiles.forEach(t => {
-    ['World_Dark_Gray_Base', 'World_Dark_Gray_Reference'].forEach((layer, li) => {
-      const url = `${ESRI_BASE}${layer}/MapServer/tile/${t.z}/${t.ty}/${t.wx}`;
-      const add = (im, clean) => { if (im && !st.dead) st.loaded.push({ im, clean, x: t.x, y: t.y, size: t.size, layer: li, born: performance.now() }); return !!im; };
-      jobs.push(loadCors(url + '?c=1').then(im => add(im, true) || loadCors(url, false).then(im2 => add(im2, false))));
-    });
-  });
-  return Promise.all(jobs);
-}
-
 /* ---------- Кадр анимации ---------- */
 function drawStory(ctx, t, forExport = false) {
-  const d = story.data, g = story.geo, W = STORY_W, H = STORY_H;
+  const d = story.data, W = STORY_W, H = STORY_H;
   const ramp = (a, b) => sClamp((t - a) / (b - a));
   ctx.clearRect(0, 0, W, H);
   ctx.drawImage(story.bg, 0, 0);
@@ -3234,8 +3298,8 @@ function drawStory(ctx, t, forExport = false) {
   ctx.fillText(d.sub, LX, 684);
   ctx.restore();
 
-  // панель с картой
-  const PX = 60, PY = 740, PW = g.PW, PH = g.PH;
+  // панель с картой: камера летит над маршрутом (движок общий с карточкой итога)
+  const PX = 60, PY = 740, PW = STORY_PW, PH = STORY_PH;
   const pe = sEase(ramp(0.3, 1.2));
   ctx.save();
   ctx.globalAlpha = pe;
@@ -3244,78 +3308,7 @@ function drawStory(ctx, t, forExport = false) {
   sRound(ctx, PX, PY, PW, PH, 56); ctx.fillStyle = '#0c1424'; ctx.fill();
   ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   sRound(ctx, PX, PY, PW, PH, 56); ctx.clip();
-
-  // «пролёт» камеры
-  const zoom = 1.2 - 0.2 * sEase(ramp(0.5, 2.3));
-  ctx.translate(PX + PW / 2, PY + PH / 2); ctx.scale(zoom, zoom); ctx.translate(-(PX + PW / 2), -(PY + PH / 2));
-  ctx.translate(PX, PY);
-
-  ctx.strokeStyle = 'rgba(157,187,255,0.07)'; ctx.lineWidth = 2;               // сетка (если плиток нет)
-  for (let x = 80; x < PW; x += 80) { ctx.beginPath(); ctx.moveTo(x, -200); ctx.lineTo(x, PH + 200); ctx.stroke(); }
-  for (let y = 80; y < PH; y += 80) { ctx.beginPath(); ctx.moveTo(-200, y); ctx.lineTo(PW + 200, y); ctx.stroke(); }
-  const now = performance.now();
-  story.loaded.forEach(tl => {
-    if (forExport && !tl.clean) return;                      // такая плитка «испортила» бы файл
-    ctx.globalAlpha = pe * sClamp((now - tl.born) / 700);
-    ctx.drawImage(tl.im, tl.x, tl.y, tl.size, tl.size);
-  });
-  ctx.globalAlpha = pe;
-
-  // маршрут
-  const A = g.A, B = g.B;
-  const ratio = Math.min(1, d.ratio);
-  const pr = sEase(ramp(1.2, 3.8)) * ratio;
-  const Q = [A[0] + (B[0] - A[0]) * pr, A[1] + (B[1] - A[1]) * pr];
-  ctx.lineCap = 'round';
-  ctx.setLineDash([2, 28]); ctx.lineDashOffset = -t * 36;
-  ctx.strokeStyle = 'rgba(238,242,250,0.65)'; ctx.lineWidth = 9;
-  ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.strokeStyle = 'rgba(221,165,180,0.28)'; ctx.lineWidth = 38;
-  ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(Q[0], Q[1]); ctx.stroke();
-  ctx.strokeStyle = '#DDA5B4'; ctx.lineWidth = 14;
-  ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(Q[0], Q[1]); ctx.stroke();
-
-  // старт и финиш
-  const pin = (p, fill, stroke) => { ctx.beginPath(); ctx.arc(p[0], p[1], 20, 0, 7); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = 7; ctx.strokeStyle = stroke; ctx.stroke(); };
-  pin(A, '#6C9BFF', '#0A0E18');
-  pin(B, d.done ? '#7ED9B0' : '#0A0E18', d.done ? '#0A0E18' : '#EEF2FA');
-  const lab = (p, text, above) => {
-    ctx.font = sFont(800, 34); ctx.textAlign = 'center'; ctx.lineJoin = 'round';
-    const x = sClamp(p[0], 110, PW - 110), y = sClamp(p[1] + (above ? -38 : 62), 56, PH - 30);
-    ctx.lineWidth = 9; ctx.strokeStyle = '#0A0E18'; ctx.strokeText(text, x, y);
-    ctx.fillStyle = '#EEF2FA'; ctx.fillText(text, x, y); ctx.textAlign = 'left';
-  };
-  const aboveA = A[1] < B[1];
-  lab(A, d.route.from, aboveA); lab(B, d.route.to, !aboveA);
-
-  // финиш: волны радости
-  if (d.done && t > 3.8) {
-    for (let i = 0; i < 2; i++) {
-      const k = sClamp((t - 3.8 - i * 0.35) / 1.4);
-      if (k > 0 && k < 1) { ctx.beginPath(); ctx.arc(B[0], B[1], 24 + k * 150, 0, 7); ctx.strokeStyle = `rgba(126,217,176,${(1 - k) * 0.8})`; ctx.lineWidth = 8; ctx.stroke(); }
-    }
-  }
-  // пловец: рябь, точка, пузырь с расстоянием
-  for (let i = 0; i < 3; i++) {
-    const k = ((t * 0.8 + i / 3) % 1);
-    ctx.beginPath(); ctx.arc(Q[0], Q[1], 26 + k * 90, 0, 7); ctx.strokeStyle = `rgba(221,165,180,${(1 - k) * 0.55})`; ctx.lineWidth = 6; ctx.stroke();
-  }
-  ctx.shadowColor = 'rgba(221,165,180,0.9)'; ctx.shadowBlur = 40;
-  ctx.beginPath(); ctx.arc(Q[0], Q[1] + Math.sin(t * 5) * 2, 26, 0, 7); ctx.fillStyle = '#DDA5B4'; ctx.fill();
-  ctx.shadowBlur = 0; ctx.lineWidth = 10; ctx.strokeStyle = '#6C9BFF'; ctx.stroke();
-  ctx.beginPath(); ctx.arc(Q[0] - 7, Q[1] - 8, 7, 0, 7); ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.fill();
-  const cur = pr * d.route.len;
-  if (pr > 0.001) {
-    const bt = fmtDist(cur); ctx.font = sFont(800, 34);
-    const bw = ctx.measureText(bt).width + 44;
-    let by = Q[1] - 98; if (by < 20) by = Q[1] + 44;
-    const bx = sClamp(Q[0] - bw / 2, 16, PW - bw - 16);
-    sRound(ctx, bx, by, bw, 56, 28); ctx.fillStyle = 'rgba(10,14,24,0.88)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(190,205,235,0.3)'; ctx.lineWidth = 2; ctx.stroke();
-    ctx.fillStyle = '#EEF2FA'; ctx.textBaseline = 'middle'; ctx.fillText(bt, bx + 22, by + 29); ctx.textBaseline = 'alphabetic';
-  }
-  ctx.translate(-PX, -PY);
+  story.fm.draw(ctx, Math.max(0, t - STORY_MAP_T0), PX, PY, PW, PH, { k: 2, ratio: d.ratio, done: d.done, forExport });
   ctx.restore();
 
   // виньетка и подписи поверх панели
@@ -3327,20 +3320,20 @@ function drawStory(ctx, t, forExport = false) {
   sRound(ctx, PX + 28, PY + PH - 76, bw2, 52, 26); ctx.fillStyle = 'rgba(10,14,24,0.8)'; ctx.fill();
   ctx.fillStyle = '#EEF2FA'; ctx.textBaseline = 'middle'; ctx.fillText('Пул задач', PX + 50, PY + PH - 49);
   ctx.font = sFont(600, 19); ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(238,242,250,0.55)';
-  ctx.fillText('Esri, HERE, Garmin, © OpenStreetMap contributors', PX + PW - 24, PY + PH - 22);
+  ctx.fillText(story.fm.st.attr, PX + PW - 24, PY + PH - 22);
   ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   ctx.restore();
   sRound(ctx, PX, PY, PW, PH, 56); ctx.strokeStyle = 'rgba(190,205,235,0.18)'; ctx.lineWidth = 3; ctx.stroke();
 
   // заголовок, подпись, полоса прогресса
-  ctx.save(); slide(2.5, 3.2, 30);
+  ctx.save(); slide(2.6, 3.4, 30);
   let fs = 68, lines;
   do { ctx.font = sFont(800, fs); lines = sWrap(ctx, d.title, 920); fs -= 4; } while (lines.length > 2 && fs > 48);
   ctx.fillStyle = d.done ? '#7ED9B0' : '#FFFFFF';
   lines.slice(0, 2).forEach((ln, i) => ctx.fillText(ln, LX, 1452 + i * (fs + 4 + 18)));
   ctx.restore();
 
-  ctx.save(); slide(2.8, 3.4, 20);
+  ctx.save(); slide(2.9, 3.6, 20);
   ctx.font = sFont(600, 36); ctx.fillStyle = '#9AA5BD';
   const subY = 1452 + (Math.min(2, lines.length) - 1) * 84 + 70;
   let cfs = 36; ctx.font = sFont(600, cfs);
@@ -3350,17 +3343,18 @@ function drawStory(ctx, t, forExport = false) {
   ctx.fillText(`${Math.min(100, Math.round(d.ratio * 100))}%`, W - LX, subY); ctx.textAlign = 'left';
   const by2 = subY + 34;
   sRound(ctx, LX, by2, W - 2 * LX, 22, 11); ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
-  const bwid = (W - 2 * LX) * sClamp(sEase(ramp(3.0, 4.4)) * d.ratio);
+  const bwid = (W - 2 * LX) * sClamp(flyEase(sClamp((t - STORY_MAP_T0 - FLY_SWIM0) / (FLY_SWIM1 - FLY_SWIM0))) * d.ratio);
   if (bwid > 4) { const bg = ctx.createLinearGradient(LX, 0, W - LX, 0); bg.addColorStop(0, '#6C9BFF'); bg.addColorStop(1, '#DDA5B4'); sRound(ctx, LX, by2, Math.max(22, bwid), 22, 11); ctx.fillStyle = bg; ctx.fill(); }
   ctx.restore();
 
   // конфетти за достижение цели
-  if (d.done && t > 3.8) {
+  const CF0 = STORY_MAP_T0 + FLY_SWIM1;
+  if (d.done && t > CF0) {
     let s = 11; const rnd = () => { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; };
     const cols = ['#DDA5B4', '#6C9BFF', '#7ED9B0', '#F4D58D', '#EEF2FA'];
     for (let i = 0; i < 90; i++) {
       const x0 = rnd() * W, v = 500 + rnd() * 700, delay = rnd() * 0.9, dr = (rnd() - 0.5) * 3, sz = 14 + rnd() * 16, life = 2.8 + rnd();
-      const dt = t - 3.8 - delay; if (dt < 0 || dt > life) continue;
+      const dt = t - CF0 - delay; if (dt < 0 || dt > life) continue;
       const y = -40 + v * dt * 0.55 + 380 * dt * dt * 0.25, x = x0 + Math.sin(dt * 3 + i) * 60;
       ctx.save(); ctx.translate(x, y); ctx.rotate(dr * dt * 4); ctx.globalAlpha = sClamp(1 - dt / life + 0.15);
       ctx.fillStyle = cols[i % 5]; ctx.fillRect(-sz / 2, -sz / 4, sz, sz / 2); ctx.restore();
@@ -3380,11 +3374,11 @@ function openStory() {
       sub: [`${fmtInt(d.meters)} м`, d.durationMin ? fmtDuration(d.durationMin) : '', d.tasks ? `${d.tasks} ${plural(d.tasks, 'задание', 'задания', 'заданий')}` : '', TYPE_LABEL[d.type] || ''].filter(Boolean).join('  ·  '),
       routeLine: `${d.route.label} · ${fmtDist(d.route.len)}`
     },
-    bg: makeStoryBg(), geo: storyGeo(d.route), loaded: [], dead: false, raf: 0, t0: performance.now()
+    bg: makeStoryBg(), fm: createFlyMap(d.route, flyStyle, STORY_PW / 2, STORY_PH / 2), dead: false, raf: 0, t0: performance.now()
   };
   cv.width = STORY_W; cv.height = STORY_H;
   const ctx = cv.getContext('2d');
-  story.tilesPromise = loadStoryTiles(story);
+  story.tilesPromise = story.fm.load();
   ov.classList.remove('hidden'); ov.classList.add('show');
   $('storyMsg').textContent = 'Нажмите на карточку, чтобы проиграть анимацию заново';
   $('storyResult') && $('storyResult').remove();
@@ -3395,7 +3389,7 @@ function openStory() {
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const loop = (now) => {
     if (!story || story.dead) return;
-    drawStory(ctx, reduce ? 4.6 : (now - story.t0) / 1000);
+    drawStory(ctx, reduce ? 8 : (now - story.t0) / 1000);
     story.raf = requestAnimationFrame(loop);
   };
   const ready = document.fonts && document.fonts.load ? Promise.race([document.fonts.load('800 80px Urbanist'), new Promise(r => setTimeout(r, 1200))]) : Promise.resolve();
@@ -3408,7 +3402,7 @@ function fitStoryCanvas() {
   cv.style.width = Math.floor(STORY_W * sc) + 'px'; cv.style.height = Math.floor(STORY_H * sc) + 'px';
 }
 function closeStory() {
-  if (story) { story.dead = true; cancelAnimationFrame(story.raf); }
+  if (story) { story.dead = true; story.fm.dead = true; cancelAnimationFrame(story.raf); }
   story = null;
   const scv = $('storyCanvas'); if (scv) scv.onclick = null;
   window.removeEventListener('resize', fitStoryCanvas);
@@ -3420,7 +3414,7 @@ function closeStory() {
 /* ---------- Экспорт: картинка и видео ---------- */
 async function storyPng() {
   await Promise.race([story.tilesPromise, new Promise(r => setTimeout(r, 6000))]);
-  const render = () => { const c = document.createElement('canvas'); c.width = STORY_W; c.height = STORY_H; drawStory(c.getContext('2d'), 4.7, true); return c; };
+  const render = () => { const c = document.createElement('canvas'); c.width = STORY_W; c.height = STORY_H; drawStory(c.getContext('2d'), 8, true); return c; };
   const toBlob = (c) => new Promise((res, rej) => { try { c.toBlob(b => b ? res(b) : rej(new Error('пустой файл')), 'image/png'); } catch (e) { rej(e); } });
   return await toBlob(render());
 }
@@ -3437,7 +3431,7 @@ async function storyVideo(onProgress) {
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 7000000 });
   const chunks = []; rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
   const stopped = new Promise(res => { rec.onstop = res; });
-  const DUR = 8.2, t0 = performance.now();
+  const DUR = 9.2, t0 = performance.now();
   rec.start(300);
   await new Promise(resolve => {
     const loop = (now) => { const t = (now - t0) / 1000; drawStory(cx, t, true); onProgress && onProgress(Math.min(1, t / DUR)); if (t < DUR) requestAnimationFrame(loop); else resolve(); };
