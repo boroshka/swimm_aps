@@ -805,9 +805,18 @@
     <div id="compTab" class="tabcontent hidden">
       <h1>Календарь стартов</h1>
       <div class="panel" style="margin-bottom:16px">
+        <label>Источник</label>
+        <div class="filter-toggle" id="cpSourceToggle" style="margin-bottom:16px">
+          <button type="button" data-val="sc">SportCubes</button>
+          <button type="button" data-val="rsf">ФВВСР</button>
+        </div>
         <div class="btn-row">
           <select id="cpMonth" style="margin-bottom:0"></select>
           <select id="cpYear" style="margin-bottom:0"></select>
+        </div>
+        <div style="margin-top:16px">
+          <label for="cpFilter">Город или название</label>
+          <input type="search" id="cpFilter" placeholder="Например: Казань" autocomplete="off" style="margin-bottom:0">
         </div>
         <div style="margin-top:16px">
           <button class="btn" onclick="fetchCompetitions()">Показать</button>
@@ -2238,7 +2247,49 @@ function initCompFilters() {
   }
 }
 
+// Адрес воркера с файла sportcubes-worker.js (Cloudflare Workers), например "https://sportcubes.ваш-логин.workers.dev".
+// Пока пусто, источник SportCubes покажет подсказку, а ФВВСР работает как раньше.
+const SPORTCUBES_URL = "https://ancient-hat-8d82.danilaboronin.workers.dev";
+let cpSource = SPORTCUBES_URL ? 'sc' : 'rsf';
+let cpRows = [];
+
+function syncCpSource() {
+  document.querySelectorAll('#cpSourceToggle button').forEach(b => b.classList.toggle('on', b.dataset.val === cpSource));
+}
+document.querySelectorAll('#cpSourceToggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (cpSource === btn.dataset.val) return;
+    cpSource = btn.dataset.val; syncCpSource(); cpRows = [];
+    $('compResults').innerHTML = '';
+  });
+});
+syncCpSource();
+$('cpFilter').addEventListener('input', () => { if (cpRows.length) paintCompetitions(); });
+
+async function fetchSportcubes() {
+  const box = $('compResults');
+  if (!SPORTCUBES_URL) {
+    box.innerHTML = `<div class="rank-status err">Источник SportCubes ещё не подключён: разверните файл sportcubes-worker.js на Cloudflare Workers и впишите его адрес в SPORTCUBES_URL.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="rank-status">Загружаем календарь SportCubes…</div>`;
+  try {
+    const resp = await fetch(`${SPORTCUBES_URL}/?y=${$('cpYear').value}&m=${$('cpMonth').value}`);
+    const data = await resp.json();
+    if (data.error) { box.innerHTML = `<div class="rank-status err">${esc(data.error)}</div>`; return; }
+    if (!(data.rows || []).length && data.debug) {
+      box.innerHTML = `<div class="rank-status err">Страница загрузилась, но соревнований в ней не найдено — возможно, на сайте поменялась вёрстка. Начало ответа (пришлите в чат):</div>
+        <textarea readonly style="width:100%;height:160px;font-size:11px;margin-top:10px">${esc(data.debug.slice(0, 3000))}</textarea>`;
+      return;
+    }
+    renderCompetitions(data.rows || []);
+  } catch (e) {
+    box.innerHTML = `<div class="rank-status err">Не удалось связаться с воркером SportCubes: ${esc(String(e))}</div>`;
+  }
+}
+
 async function fetchCompetitions() {
+  if (cpSource === 'sc') return fetchSportcubes();
   const box = $('compResults');
   if (!RATING_WORKER_URL) {
     box.innerHTML = `<div class="rank-status err">Прокси ещё не настроен (RATING_WORKER_URL пуст).</div>`;
@@ -2273,20 +2324,35 @@ async function fetchCompetitions() {
   }
 }
 
-function renderCompetitions(rows) {
+function renderCompetitions(rows) { cpRows = rows || []; paintCompetitions(); }
+
+function paintCompetitions() {
   const box = $('compResults');
-  if (!rows.length) {
+  if (!cpRows.length) {
     box.innerHTML = `<div class="rank-status">На выбранный месяц соревнований не нашлось.</div>`;
     return;
   }
-  box.innerHTML = rows.map(r => `
-    <div class="rank-row" style="align-items:flex-start">
+  const q = ($('cpFilter').value || '').trim().toLowerCase();
+  const rows = q ? cpRows.filter(r => `${r.title} ${r.location || ''}`.toLowerCase().includes(q)) : cpRows;
+  if (!rows.length) {
+    box.innerHTML = `<div class="rank-status">По запросу «${esc(q)}» ничего нет (всего в месяце: ${cpRows.length}).</div>`;
+    return;
+  }
+  const d = new Date(), today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const head = q ? `<div class="rank-meta" style="margin:0 4px 8px">Найдено: ${rows.length} из ${cpRows.length}</div>` : '';
+  box.innerHTML = head + rows.map(r => {
+    const past = r.end && r.end < today;
+    const loc = [r.location, r.pool].filter(Boolean).join(' · ');
+    return `
+    <div class="rank-row" style="align-items:flex-start${past ? ';opacity:0.5' : ''}">
       <div class="rank-info">
         <div class="rank-name">${r.url ? `<a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href)" style="color:inherit;text-decoration:none">${esc(r.title)}</a>` : esc(r.title)}</div>
-        <div class="rank-meta">${esc(r.dates)}${r.location ? ' · ' + esc(r.location) : ''}</div>
+        <div class="rank-meta">${esc(r.dates || '')}${loc ? ' · ' + esc(loc) : ''}</div>
+        ${r.status ? `<div class="rank-meta" style="margin-top:4px;color:${/регистрац/i.test(r.status) ? '#7ED9B0' : 'var(--blue)'}">${esc(r.status)}</div>` : ''}
         ${r.results && r.results.length ? `<div class="rank-meta" style="margin-top:4px"><a href="${esc(r.results[0])}" target="_blank" rel="noopener noreferrer" onclick="return openExt(event, this.href, true)" style="color:var(--blue)">Результаты (PDF)</a></div>` : ''}
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 
