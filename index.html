@@ -1471,12 +1471,20 @@ function disciplineLabel(alias) {
   return opt ? opt.textContent : (alias || '');
 }
 
+// Бассейн нового импорта: отметка вручную и данные из положения не затираем, остальное берём из рейтинга
+function poolFields(fromResult, prev) {
+  if (prev && (prev.src === 'manual' || prev.src === 'regulation')) return { pool: prev.pool, poolSrc: prev.src };
+  if (fromResult) return { pool: fromResult, poolSrc: 'result' };
+  if (prev) return { pool: prev.pool, poolSrc: prev.src };
+  return { pool: 0, poolSrc: '' };
+}
+
 function applyRsfImport(key) {
   const box = $('rsfSearchResults');
   const matches = rsfSearchMatches.filter(r => personKey(r) === key);
   // бассейн, который пользователь уже отметил вручную, не теряем при повторной загрузке
   const prevPool = new Map();
-  startsCache.forEach(x => { if (x && Number(x.pool) > 0) prevPool.set(stKey(x.discipline, stDay(x), x.result), Number(x.pool)); });
+  startsCache.forEach(x => { if (x && Number(x.pool) > 0) prevPool.set(stKey(x.discipline, stDay(x), x.result), { pool: Number(x.pool), src: x.poolSrc || '' }); });
   const starts = matches.map(r => {
     const discipline = disciplineLabel(r._alias);
     const result = r.FormattedResult || rsfText(r.Result);
@@ -1484,7 +1492,7 @@ function applyRsfImport(key) {
     return {
       id: r.ParticipantID || (key + '-' + r._alias + '-' + r.Date + '-' + r.Result),
       discipline, result, date,
-      pool: rsfPoolOf(r) || prevPool.get(stKey(discipline, rsfToIso(date), result)) || 0,
+      ...poolFields(rsfPoolOf(r), prevPool.get(stKey(discipline, rsfToIso(date), result))),
       tournament: rsfText(r.Tournament) || rsfText(r.Competition),
       location: rsfText(r.Location),
       ...rsfLinkPaths(r),
@@ -1524,7 +1532,97 @@ async function pickRsfPerson(key) {
   rsfPersonKey = key;
   applyRsfImport(key);          // сразу показываем то, что уже загружено
   await rsfSearchDone;          // остальные дистанции дозагружаются в фоне
-  if (rsfPersonKey === key) { applyRsfImport(key); await flushStarts(); }
+  if (rsfPersonKey === key) { applyRsfImport(key); await flushStarts(); resolvePoolsFromRegulations(false); }
+}
+
+/* ============================================================
+   Бассейн по положению соревнования (через воркер SportCubes)
+   Воркер находит соревнование по названию и дате, читает положение и отдаёт 25 или 50.
+   Приоритет: отметка вручную → положение → календарь SportCubes → данные рейтинга.
+   ============================================================ */
+const POOL_REG_KEY = 'pool_reg_cache_v1';
+const POOL_SRC_LABEL = { regulation: 'по положению соревнования', calendar: 'по календарю SportCubes', result: 'по данным рейтинга', manual: 'отмечено вручную' };
+let poolResolve = { busy: false, done: 0, total: 0, auto: false, note: '' };
+
+function poolCacheLoad() { try { return JSON.parse(localStorage.getItem(POOL_REG_KEY) || '{}'); } catch (e) { return {}; } }
+function poolCacheSave(c) {
+  try {
+    const keys = Object.keys(c);
+    if (keys.length > 400) keys.sort((a, b) => c[a].t - c[b].t).slice(0, keys.length - 400).forEach(k => delete c[k]);
+    localStorage.setItem(POOL_REG_KEY, JSON.stringify(c));
+  } catch (e) { /* хранилище недоступно — не страшно, спросим снова */ }
+}
+function poolStatusHtml() {
+  if (!SPORTCUBES_URL) return '';
+  if (poolResolve.busy) return `<div class="rank-meta" style="margin:0 4px 10px">Определяем бассейн по положениям… ${poolResolve.done} из ${poolResolve.total}</div>`;
+  const left = startsCache.filter(x => x && x.result && x.poolSrc !== 'manual' && x.poolSrc !== 'regulation').length;
+  return `<div class="rank-meta" style="margin:0 4px 10px">${poolResolve.note ? esc(poolResolve.note) + ' ' : ''}${left ? `<button class="link-btn" style="font-size:13px" onclick="resolvePoolsFromRegulations(true)">Определить бассейн по положениям</button>` : ''}</div>`;
+}
+function poolRefreshView() {
+  if (!$('stCards')) return;
+  stPrepare();
+  const pc = stPoolCounts(false);
+  if (!pc[stF.pool] && (pc[25] || pc[50] || pc[0])) stF.pool = stDefaultPool();
+  renderStartsView(false);
+}
+
+async function resolvePoolsFromRegulations(force) {
+  if (!SPORTCUBES_URL || poolResolve.busy) return;
+  const cache = poolCacheLoad();
+  const groups = new Map();                                   // одно соревнование в один день = один запрос
+  startsCache.forEach(x => {
+    if (!x || !x.result || !x.tournament || x.poolSrc === 'manual' || x.poolSrc === 'regulation') return;
+    const day = stDay(x); if (!day) return;
+    const key = day + '|' + String(x.tournament).trim().toLowerCase();
+    if (!groups.has(key)) groups.set(key, { day, title: String(x.tournament).trim(), city: x.location || '', items: [] });
+    groups.get(key).items.push(x);
+  });
+  const keys = [...groups.keys()];
+  poolResolve = { busy: true, done: 0, total: keys.length, auto: poolResolve.auto, note: '' };
+  poolRefreshView();
+  let changed = 0, found = 0, notFound = 0, failed = 0, idx = 0;
+
+  const ask = async (key) => {
+    const g = groups.get(key), c = cache[key];
+    if (!force && c && Date.now() - c.t < (c.found ? 90 : 3) * 86400000) return c;          // нашли — помним 90 дней, не нашли — 3 дня
+    const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const url = `${SPORTCUBES_URL}/pool?title=${encodeURIComponent(g.title)}&date=${g.day}&city=${encodeURIComponent(g.city)}`;
+      const data = await (await fetch(url, { signal: ctrl.signal })).json();
+      if (data.error) throw new Error(data.error);
+      const rec = { t: Date.now(), found: !!data.found, pool: data.pool || 0, source: data.source || '' };
+      cache[key] = rec; return rec;
+    } finally { clearTimeout(timer); }
+  };
+  const apply = (key, ans) => {
+    if (!ans || !ans.found || (ans.pool !== 25 && ans.pool !== 50)) { notFound++; return; }
+    found++;
+    groups.get(key).items.forEach(x => {
+      if (ans.source === 'regulation') {
+        if (x.pool !== ans.pool || x.poolSrc !== 'regulation') { x.pool = ans.pool; x.poolSrc = 'regulation'; changed++; }
+      } else if (!(Number(x.pool) > 0) || x.poolSrc === 'calendar') {
+        if (x.pool !== ans.pool || x.poolSrc !== 'calendar') { x.pool = ans.pool; x.poolSrc = 'calendar'; changed++; }
+      }
+    });
+  };
+  const runner = async () => {
+    while (idx < keys.length) {
+      const key = keys[idx++];
+      try { apply(key, await ask(key)); } catch (e) { failed++; }
+      poolResolve.done++;
+      if (poolResolve.done % 4 === 0) poolRefreshView();
+    }
+  };
+  try { await Promise.all([runner(), runner(), runner()]); }
+  finally {
+    poolCacheSave(cache);
+    poolResolve.busy = false;
+    poolResolve.note = !keys.length ? 'Бассейн у всех стартов уже определён.'
+      : failed && !found && !notFound ? 'Не удалось связаться с воркером SportCubes.'
+      : `Проверено соревнований: ${keys.length}. Бассейн найден у ${found}${notFound ? `, не нашёлся у ${notFound} (отметьте вручную)` : ''}${failed ? `, ошибок связи: ${failed}` : ''}.`;
+    if (changed) { persistStartsSoon(); await flushStarts(); }
+    stPrepare(); poolRefreshView();
+  }
 }
 
 /* ============================================================
@@ -1579,7 +1677,7 @@ function stPrepare() {
     const key = stKey(s.discipline, stDay(s), s.result);
     const ex = seen.get(key);
     if (!ex) seen.set(key, { ...s });
-    else ['tournament', 'location', 'pool', 'evUrl', 'prUrl'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
+    else ['tournament', 'location', 'pool', 'poolSrc', 'evUrl', 'prUrl'].forEach(k => { if (!ex[k] && s[k]) ex[k] = s[k]; });
   });
   stAll = [...seen.values()].map((s, i) => ({
     ...s, uid: i, discipline: s.discipline || '', day: stDay(s), sec: stParseTime(s.result),
@@ -1646,6 +1744,7 @@ function renderStarts() {
     return;
   }
   btn.classList.remove('hidden');
+  if (!poolResolve.auto) { poolResolve.auto = true; setTimeout(() => resolvePoolsFromRegulations(false), 400); }
   box.innerHTML = `
     <div class="st-panel" id="stPanel"><div class="st-panel-in"><div class="st-panel-card">
       <label>Период</label>
@@ -1669,6 +1768,7 @@ function renderStarts() {
       <button class="btn btn-ghost" style="padding:12px" onclick="resetStFilters()">Сбросить фильтры</button>
     </div></div></div>
     <div id="stPoolBox"></div>
+    <div id="stPoolStatus"></div>
     <div id="stTotal" class="st-total"></div>
     <div id="stCards"></div>`;
   const pc = stPoolCounts(false);
@@ -1733,6 +1833,7 @@ function stSparkSvg(timed) {
 function renderStartsView(animate) {
   stSyncControls();
   renderPoolSeg();
+  const ps = $('stPoolStatus'); if (ps) ps.innerHTML = poolStatusHtml();
   stCards = stBuildCards();
   const total = stCards.reduce((n, c) => n + c.items.length, 0);
   const filtered = stF.period !== 'all';
@@ -1755,7 +1856,7 @@ function renderStartsView(animate) {
   if (stF.openDisc != null && !stCards.some(c => c.d === stF.openDisc)) stF.openDisc = null;
 
   const bulk = stF.pool === 0 ? `
-    <div class="st-bulk">Сайт не сообщил длину бассейна у этих стартов, поэтому они показаны отдельно от остальных. Отметьте, где они проходили (у каждого старта это можно поправить и отдельно):
+    <div class="st-bulk">Длина бассейна у этих стартов не нашлась ни в рейтинге, ни в положениях соревнований, поэтому они показаны отдельно от остальных. Отметьте, где они проходили (у каждого старта это можно поправить и отдельно):
       <div class="st-bulk-row"><button onclick="setUnknownPool(25)">Все в бассейне 25 м</button><button onclick="setUnknownPool(50)">Все в бассейне 50 м</button></div>
     </div>` : '';
   list.innerHTML = bulk + stCards.map((c, i) => {
@@ -1813,7 +1914,7 @@ function setStPool(v) { stF.pool = v; renderStartsView(true); }
 function setStartPool(uid, pool) {
   const t = stAll[uid]; if (!t || t.pool === pool) return;
   const key = stKey(t.discipline, t.day, t.result);
-  startsCache.forEach(x => { if (x && x.result && stKey(x.discipline, stDay(x), x.result) === key) x.pool = pool; });
+  startsCache.forEach(x => { if (x && x.result && stKey(x.discipline, stDay(x), x.result) === key) { x.pool = pool; x.poolSrc = 'manual'; } });
   flushStarts();
   stPrepare();
   stF.pool = pool;
@@ -1823,7 +1924,7 @@ function setStartPool(uid, pool) {
 }
 // Всем стартам без указанного бассейна проставить один
 function setUnknownPool(pool) {
-  startsCache.forEach(x => { if (x && !(Number(x.pool) > 0)) x.pool = pool; });
+  startsCache.forEach(x => { if (x && !(Number(x.pool) > 0)) { x.pool = pool; x.poolSrc = 'manual'; } });
   flushStarts();
   stPrepare();
   stF.pool = pool;
@@ -1997,7 +2098,7 @@ function stChartHtml(c, ci, animate) {
   const linkChips = [s.prUrl && rsfLinkChip('Протокол', s.prUrl), s.prUrl && rsfCopyChip(s.prUrl), s.evUrl && rsfLinkChip('Соревнование', s.evUrl)].filter(Boolean);
   const links = linkChips.length ? `<div class="rank-links" style="margin:0 6px 12px">${linkChips.join('')}</div>` : '';
   const poolEdit = `
-    <div class="st-pool-edit"><span>Бассейн этого старта</span>
+    <div class="st-pool-edit"><span>Бассейн этого старта${POOL_SRC_LABEL[s.poolSrc] ? `<br><small style="opacity:.75">${POOL_SRC_LABEL[s.poolSrc]}</small>` : ''}</span>
       <div class="seg small">
         <button class="${s.pool === 25 ? 'on' : ''}" onclick="setStartPool(${s.uid},25)">25 м</button>
         <button class="${s.pool === 50 ? 'on' : ''}" onclick="setStartPool(${s.uid},50)">50 м</button>
@@ -2018,6 +2119,9 @@ const PROXY_URLS = [
   "https://swim-proxy.danilaboronin.workers.dev",
   "https://damp-frog-abc6.danilaboronin.workers.dev"
 ];
+// Адрес воркера с файла sportcubes-worker.js (Cloudflare Workers), например "https://sportcubes.ваш-логин.workers.dev".
+// Пока пусто, источник SportCubes покажет подсказку, а ФВВСР работает как раньше.
+const SPORTCUBES_URL = "https://ancient-hat-8d82.danilaboronin.workers.dev";
 const RATING_WORKER_URL = PROXY_URLS[0];      // используется только как признак «прокси задан»
 let proxyIdx = 0;                              // какой из прокси сейчас рабочий
 async function proxyFetch(path, init) {
@@ -2247,9 +2351,6 @@ function initCompFilters() {
   }
 }
 
-// Адрес воркера с файла sportcubes-worker.js (Cloudflare Workers), например "https://sportcubes.ваш-логин.workers.dev".
-// Пока пусто, источник SportCubes покажет подсказку, а ФВВСР работает как раньше.
-const SPORTCUBES_URL = "https://ancient-hat-8d82.danilaboronin.workers.dev";
 let cpSource = SPORTCUBES_URL ? 'sc' : 'rsf';
 let cpRows = [];
 
@@ -2264,7 +2365,7 @@ document.querySelectorAll('#cpSourceToggle button').forEach(btn => {
   });
 });
 syncCpSource();
-$('cpFilter').addEventListener('input', () => { if (cpRows.length) paintCompetitions(); });
+document.getElementById('cpFilter').addEventListener('input', () => { if (cpRows.length) paintCompetitions(); });
 
 async function fetchSportcubes() {
   const box = $('compResults');
@@ -2324,7 +2425,18 @@ async function fetchCompetitions() {
   }
 }
 
-function renderCompetitions(rows) { cpRows = rows || []; paintCompetitions(); }
+// Только соревнования в России: за границей место записано как «Город, Страна» (Baku, Азербайджан)
+const NON_RU_COUNTRIES = new Set(['азербайджан', 'узбекистан', 'казахстан', 'беларусь', 'белоруссия', 'армения', 'грузия', 'киргизия', 'кыргызстан', 'таджикистан', 'туркменистан', 'молдова', 'украина', 'латвия', 'литва', 'эстония', 'китай', 'япония', 'корея', 'южная корея', 'северная корея', 'монголия', 'вьетнам', 'таиланд', 'индия', 'иран', 'ирак', 'израиль', 'оаэ', 'катар', 'сингапур', 'турция', 'египет', 'тунис', 'марокко', 'юар', 'куба', 'бразилия', 'аргентина', 'мексика', 'сша', 'канада', 'австралия', 'новая зеландия', 'великобритания', 'англия', 'шотландия', 'ирландия', 'германия', 'франция', 'италия', 'испания', 'португалия', 'бельгия', 'нидерланды', 'люксембург', 'швейцария', 'австрия', 'венгрия', 'польша', 'чехия', 'словакия', 'словения', 'хорватия', 'сербия', 'черногория', 'босния и герцеговина', 'северная македония', 'албания', 'болгария', 'румыния', 'греция', 'кипр', 'мальта', 'швеция', 'норвегия', 'дания', 'финляндия', 'исландия', 'андорра', 'монако']);
+function isForeignLocation(loc) {
+  const s = String(loc || '').trim();
+  if (!s) return false;
+  const parts = s.split(',').map(x => x.trim().toLowerCase().replace(/\s*\(.*\)\s*$/, ''));
+  if (parts.length > 1 && /^(россия|russia|рф)$/.test(parts[parts.length - 1])) return false;
+  if (parts.some(x => NON_RU_COUNTRIES.has(x))) return true;
+  return !/[а-яё]/i.test(s);                                    // ни одной русской буквы («Budapest») — не наш город
+}
+
+function renderCompetitions(rows) { cpRows = (rows || []).filter(r => !isForeignLocation(r.location)); paintCompetitions(); }
 
 function paintCompetitions() {
   const box = $('compResults');
