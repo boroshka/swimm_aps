@@ -605,17 +605,6 @@
   .map-note { position: absolute; left: 10px; right: 10px; top: 10px; background: rgba(10, 14, 24, 0.85); border: 1px solid var(--line); border-radius: 14px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: #B9C4DA; line-height: 1.4; text-align: center; }
 
   .map-cv { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
-  .map-style {
-    position: absolute; top: 10px; right: 10px; z-index: 3;
-    display: flex; gap: 2px; padding: 3px; border-radius: 999px;
-    background: rgba(10, 14, 24, 0.72); border: 1px solid rgba(190, 205, 235, 0.22);
-    -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
-  }
-  .map-style button {
-    border: none; background: transparent; color: #B9C4DA;
-    font-size: 12px; font-weight: 700; padding: 6px 12px; border-radius: 999px; transition: background 0.2s ease, color 0.2s ease;
-  }
-  .map-style button.on { background: var(--rose); color: var(--dark); }
   .map-replay { position: absolute; left: 10px; bottom: 6px; z-index: 2; font-size: 10.5px; font-weight: 600; color: rgba(238, 242, 250, 0.6); text-shadow: 0 0 3px #0A0E18, 0 0 3px #0A0E18; pointer-events: none; }
   .done-cap { color: var(--ink); font-size: 14.5px; line-height: 1.5; margin-top: 14px; }
   .done-note { color: var(--soft); font-size: 12px; margin-top: 8px; }
@@ -2870,7 +2859,7 @@ function showWorkoutDone({ meters, durationMin, tasks, type, eyebrow: headEyebro
       <div class="route-bar" aria-hidden="true"><i style="width:${Math.min(100, ratio * 100).toFixed(1)}%"></i></div>
       <div class="route-bar-lbl"><span>0</span><span>${esc(fmtDist(route.len))}</span></div>
       <p class="done-cap">${esc(caption)}</p>
-      <p class="done-note">Маршрут — прямая между берегами, а не трек настоящего заплыва. Карта: Esri, HERE, Garmin, © OpenStreetMap contributors.</p>
+      <p class="done-note">Маршрут — прямая между берегами, а не трек настоящего заплыва. Спутниковые снимки: Esri, Maxar, Earthstar Geographics.</p>
     </section>` : ''}
     <div class="done-actions"><button class="btn btn-rose" id="doneCloseBtn" onclick="closeWorkoutDone()">Готово</button></div>`;
 
@@ -2928,10 +2917,9 @@ document.addEventListener('keydown', (e) => {
    ============================================================ */
 const FLY_TILE = 256;
 const FLY_STYLES = {
-  sat:  { label: 'Спутник', layers: ['World_Imagery', 'Reference/World_Boundaries_and_Places'], maxZ: 18, attr: 'Esri, Maxar, Earthstar Geographics', shade: 'rgba(6,12,26,0.20)', bg: '#0a1626' },
-  dark: { label: 'Карта', layers: ['Canvas/World_Dark_Gray_Base', 'Canvas/World_Dark_Gray_Reference'], maxZ: 16, attr: 'Esri, HERE, Garmin, © OpenStreetMap contributors', shade: '', bg: '#0c1424' }
+  sat:  { label: 'Спутник', layers: ['World_Imagery', 'Reference/World_Boundaries_and_Places'], maxZ: 18, attr: 'Esri, Maxar, Earthstar Geographics', shade: 'rgba(6,12,26,0.20)', bg: '#0a1626' }
 };
-let flyStyle = 'sat';
+const flyStyle = 'sat';
 // тайминг (секунды): ныряем к старту → плывём → пауза → отъезжаем на весь маршрут
 const FLY_SWIM0 = 0.9, FLY_SWIM1 = 4.6, FLY_PULL0 = 5.0, FLY_PULL1 = 6.6, FLY_TOTAL = 7.2;
 const flyEase = (x) => { x = Math.min(1, Math.max(0, x)); return x * x * x * (x * (x * 6 - 15) + 10); };   // smootherstep: мягкий старт и финиш
@@ -3124,13 +3112,6 @@ function renderRouteMap(host, route, progress, done, reduce) {
     fm = createFlyMap(route, flyStyle, W, H);
     const attr = document.createElement('div'); attr.className = 'map-attr'; attr.textContent = fm.st.attr; host.appendChild(attr);
     if (!reduce) { const hint = document.createElement('div'); hint.className = 'map-replay'; hint.textContent = 'Нажмите, чтобы повторить'; host.appendChild(hint); }
-    const sw = document.createElement('div'); sw.className = 'map-style';
-    sw.innerHTML = Object.keys(FLY_STYLES).map(key => `<button type="button" data-s="${key}" class="${key === flyStyle ? 'on' : ''}">${FLY_STYLES[key].label}</button>`).join('');
-    sw.addEventListener('click', (e) => {
-      const btn = e.target.closest('button'); if (!btn || btn.dataset.s === flyStyle) return;
-      e.stopPropagation(); flyStyle = btn.dataset.s; build();
-    });
-    host.appendChild(sw);
     fm.load();
 
     // если за 6 секунд не загрузилась ни одна плитка — честно говорим об этом
